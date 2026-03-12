@@ -1,0 +1,794 @@
+// (c) 2023-2024 384 (tm)
+
+// 384 file system
+
+import {
+    arrayBufferToBase62, assemblePayload, Channel, ChannelApi, ChannelHandle,
+    Message, ObjectHandle, Protocol_AES_GCM_256, Protocol_KeyInfo, SBError,
+    SBProtocol, SBUserId, SBUserPublicKey, StorageApi,
+} from '../index';
+
+import {
+    _check_ObjectHandle,
+} from '../storage/ObjectHandle';
+
+import {
+    fetchPayload
+} from '../storage/core'
+
+import { SBFile } from './SBFile';
+
+import { BrowserFileHelper } from '../browser/BrowserFileHelper';
+import { MessageType } from '../channel/MessageType';
+import { ChannelStream } from '../channel/ChannelStream';
+
+// import { preview File } from '../browser/preview';
+
+var DBG0 = true;
+var DBG2 = false;
+
+// refactoring / transitioning to streams for sbfs
+const USE_CHANNEL_STREAMS = true;
+
+const SEP = '\n' + '='.repeat(76) + '\n';
+
+import { SBFS, FileSetMeta } from './SBFS';
+
+
+/**
+ * 'SBFS': Creates a file system abstraction given server information and
+ * channel handles. Ledger handle is used for all file system meta data, and
+ * budget handle is used as funding source for any uploads.
+ *
+ * You could use the same channel for both functions, but then you get the
+ * classic problem that when you're out of funds, everything freezes. This is
+ * analogous to how a traditional operating system, which will reserve both
+ * in-memory and on-disk space for it's own critical functions.
+ *
+ * Upon creation, SBFS will fetch all previous file sets from the ledger. It
+ * will call 'newFileSet' callback for each one, if a UI wants to dynamically be
+ * made aware of them.
+ * 
+ * @public
+ */
+export class SBFileSystem extends SBFS {
+    // public static version = '3.20240519.0';
+    SB: ChannelApi;
+
+    // static currentFileList: Array<SBFile> = [];
+    // knownShards = BrowserFileHelper.knownShards
+    // static fileHelper: BrowserFileHelper = new BrowserFileHelper();
+
+    fileSetMap: Map<string, FileSetMeta> = new Map();
+    budget?: Channel;
+    ledger?: Channel;
+    ledgerHandle?: ChannelHandle;
+    ledgerProtocol?: Protocol_AES_GCM_256;
+
+    // USE_CHANNEL_STREAMS
+    // ledgerSocket?: ChannelSocket;
+
+    // ToDo: currently we can only handle one set being uploaded at a time (per SBFileSystem instance)
+    newFileMap: Map<string, SBFile> = new Map()
+    toUpload: Array<string> = []
+    uploaded: Array<string> = []
+
+    initialized = false;
+
+    fetchPayload = fetchPayload; // convenience / compatibility
+
+    /** Minimal option is the channelServer, everything else is more advanced */
+    constructor(
+        public options: {
+            // at minimum, we need a channel server
+            channelServer: string,
+            // core for full functionality
+            ledgerHandle?: ChannelHandle,
+            ledgerPassPhrase?: string,
+            budgetHandle?: ChannelHandle,
+            // optional
+            username?: string,
+            // advanced, for most cases we can use default fixed value (below)
+            ledgerKey?: Protocol_KeyInfo
+            // appServer?: string,
+        },
+        public callbacks: {
+            /** Called for all sets of files encountered on a stream */
+            newFileSet?: (meta: FileSetMeta) => void, // previously 'processNewTable'
+            /** UI callback for any long-running tasks */
+            setProgressBarWidth?: (width: number) => void,
+        }
+    ) {
+        // console.log("SBFileSystem constructor");
+        this.SB = new ChannelApi(this.options.channelServer)
+
+        if (!this.options.ledgerKey)
+            // if not provided, we use a fixed value. good enough in many cases.
+            // note, this will NOT change, it is fixed for SBFileSystem 
+            this.options.ledgerKey = {
+                salt1: new Uint8Array([236, 15, 149, 57, 16, 61, 101, 82, 24, 206, 80, 70, 162, 38, 253, 33]),
+                iterations1: 100000,
+                iterations2: 10000,
+                hash1: "SHA-256",
+                summary: "PBKDF2 - SHA-256 - AES-GCM"
+            }
+
+        if (options.budgetHandle)
+            this.budget = this.SB.connect(options.budgetHandle) // we won't be messaging on this
+
+        if (options.ledgerHandle) {
+            options.ledgerHandle.channelServer = options.channelServer // in case it's not set
+            this.ledgerHandle = options.ledgerHandle
+        }
+
+        if (options.ledgerHandle && options.ledgerPassPhrase) {
+            this.ledgerProtocol = new Protocol_AES_GCM_256(options.ledgerPassPhrase, this.options.ledgerKey!)
+            this.ledger = new Channel(options.ledgerHandle, this.ledgerProtocol) // we _will_ be messaging on this
+        }
+    }
+
+    // USE_CHANNEL_STREAMS
+    // init = async () => {
+    //     // we process old sets on the ledger
+    //     this.initialized = true;
+    //     if (this.options.ledgerHandle && this.ledger && this.ledgerProtocol) {
+    //         await this.fetchPreviousFileSets()
+    //         // and then we open channel socket for new communications
+    //         this.ledgerSocket = new ChannelSocket(this.options.ledgerHandle, this.receiveMessage, this.ledgerProtocol)
+    //         await this.ledgerSocket.ready
+    //     }
+    // }
+
+    // USE_CHANNEL_STREAMS
+    // private fetchPreviousFileSets = async () => {
+    //     if (!this.ledger) throw new Error("[SBFileSystem] Internal error (L133).")
+    //     const old = await this.ledger.getMessageKeys()
+    //     if (DBG0) console.log(`++++ got ${old.keys.size} old messages`, old)
+    //     if (old.keys.size === 0) return;
+    //     const messages = await this.ledger.getMessageMap(old.keys)
+    //     for (const m of messages.values())
+    //         await this.receiveMessage(m)
+    // }
+
+    // USE_CHANNEL_STREAMS
+    /** Starts up a SBFileSystem against a stream */
+    async spinUpStream(handle: ChannelHandle, protocol: SBProtocol) {
+        if (!USE_CHANNEL_STREAMS) throw new Error("This function is only for use with channel streams")
+        const channelStream = await (new ChannelStream(handle, protocol)).ready
+        const stream = channelStream.start({ prefix: '0' }); // '0' means full history of messagers
+        if (DBG0) console.log(SEP, "[spinUpStream] Stream started", SEP)
+        for await (const message of stream) {
+            if (DBG2) console.log("[spinUpStream] Message: ", message.body)
+            await this.receiveMessage(message)
+        }
+        if (DBG0) console.log(SEP, "[spinUpStream] DONE")
+    }
+
+    // USE_CHANNEL_STREAMS
+    /** FileSystems need to be initialized (which might spin up stream) */
+    init = async () => {
+        // we process old sets on the ledger
+        this.initialized = true;
+        if (this.options.ledgerHandle && this.ledger && this.ledgerProtocol) {
+            this.spinUpStream(this.options.ledgerHandle, this.ledgerProtocol) // ToDo: mechanism for shutting down
+        } else {
+            console.error("[SBFileSystem] No ledger handle or protocol, cannot initialize.")
+        }
+    }
+
+    // called when we know all the parts (shards) of the set have been uploaded
+    private doneUploadingSet = async () => {
+        if (!this.ledger || !this.options.budgetHandle)
+            throw new Error("[SBFileSystem] Ledger or budget handle not set up, cannot upload sets.")
+        console.log("++++ done uploading set")
+        if (this.newFileMap.size === 0) {
+            throw new Error("Internal Error (L149)")
+        }
+
+        // first we update all file metadata with handles
+        this.newFileMap.forEach((value, key) => {
+            if (!value.hash) throw new Error("Internal Error (L154)")
+            if (value.size && value.size > SBFile.MAX_SBFILE_CHUNK_SIZE) {
+                if (value.hashArray) {
+                    value.handleArray = value.hashArray.map(hash => ChannelApi.knownShards.get(hash)!);
+                } else {
+                    console.warn("[doneUploadingSet] Large file but 'hashArray' already clearee? Internal Warning (L193)")
+                }
+                value.hashArray = undefined; // we don't need this anymore
+            } else {
+                // common case, single shard per file
+                const handle = ChannelApi.knownShards.get(value.hash)
+                if (!handle) throw new Error("Internal Error (L199)")
+                this.newFileMap.get(key)!.handleArray = [handle!]
+            }
+        });
+
+        // we create a hash off the fileMetaDataMap
+        const b = assemblePayload(this.newFileMap)!;
+        const hash = arrayBufferToBase62(await globalThis.crypto.subtle.digest('SHA-256', b)).slice(0, 12);
+
+        // so now we send the set/metadata as a message
+        // const sbFile: SBFile = {
+        //     _SBFSVersion: '2024-02-01-0002',
+        //     hash: hash,
+        //     sb384app: true,
+        //     sb384appType: 'fileSetV03',
+        //     name: `FileSet ${Date.now()}`,
+        //     type: 'application/vnd.384.sb384app',
+        //     fileMetaDataMap: this.newFileMap
+        // }
+        const sbFile: SBFile = new SBFile({
+            hash: hash,
+            sb384app: true,
+            sb384appType: 'fileSetV03',
+            name: `FileSet ${Date.now()}`,
+            type: 'application/vnd.384.sb384app',
+            fileMetaDataMap: this.newFileMap
+        })
+        // const fileSetObject = await this.uploadFile(sbFile)
+        const fileSetObject: ObjectHandle = await this.SB.storage.storeData(sbFile, this.options.budgetHandle)
+        this.ledger.send({
+            messageType: MessageType.MSG_FILE_SET,
+            fileSetShard: fileSetObject,
+            // fileSet: sbFile
+        })
+        // This is a bit of a hack, but we're done uploading, so we send 100% to the progress bar
+        // Helps cover cases where files are already known, an app dev would expect this to be 100%
+        if (this.callbacks.setProgressBarWidth)
+            this.callbacks.setProgressBarWidth(100);
+       
+        if (DBG0) console.log("++++ file set shard info has been sent as message on ledger")
+    }
+
+    /**
+     * Given a file list, creates and uploads the set; makes sure all shards are
+     * uploaded. If everything went fine, returns 'null', otherwise an error string.
+     */
+    uploadNewSet = async (fileList: Array<SBFile>): Promise<string | null> => {
+        let error: string | null = null;
+        if (!this.initialized) throw new Error("[SBFileSystem] Not initialized (L189).")
+        if (!fileList || fileList.length === 0) throw new Error("No files to upload")
+        console.log("[uploadNewSet] new set:", fileList)
+
+        try {
+            this.newFileMap = new Map()
+            for (const f of fileList) {
+                if (!f.hash) throw new Error("Internal Error (L195)")
+                this.newFileMap.set(f.hash, f)
+            }
+
+            // ToDo: currently code only allows one set at a time, we need to allow multiple.
+            if (this.toUpload.length > 0) {
+                // toUpload and uploaded will be reset by message handler
+                console.error("++++ already uploading files, please wait ...")
+                return "[uploadNewSet] Already uploading a set of files, cannot (yet) upload sets in parallel."
+            }
+            // We reset these arrays
+            this.toUpload = []
+            this.uploaded = []
+
+            // we make sure all shards are uploaded first before sending 'set' info;
+            // iterate over all Map() entries and upload them
+
+            // ToDo: move to UI interface code
+            const loadingBar = document.querySelector('.loading-bar') as HTMLElement;
+            if (!loadingBar)
+                console.warn("loading bar not found")
+            else
+                loadingBar.style.display = 'block';
+
+            const uploadPromises = []
+            for (const f of fileList) {
+                if (error) {
+                    console.error("[uploadNewSet] Error in previous file, aborting (L279):", error)
+                    return error;
+                }
+                // const fileHash = value.uniqueShardId!;
+                if (!f.hash) throw new Error("Internal Error (L225)")
+                if (!f.size) f.size = 0 // throw new Error("Internal Error (L226)")
+                if (f.size > SBFile.MAX_SBFILE_CHUNK_SIZE) {
+                    if (!f.browserFile) throw new Error("Large file but no 'browserFile' to work with. Internal Error (L238)")
+                    if (DBG0) console.log(`---- uploading LARGE file:`, f)
+                    f.hashArray = []
+                    // we first load the whole file into memory
+                    const buffer = await f.browserFile.arrayBuffer()
+                    const chunkSize = SBFile.MAX_SBFILE_CHUNK_SIZE
+                    const chunks = Math.ceil(f.size / chunkSize)
+                    for (let i = 0; i < chunks; i++) {
+                        await StorageApi.paceUploads()
+                        if (error) {
+                            console.error("[uploadNewSet] Error in previous file, aborting (L296):", error)
+                            return error;
+                        }
+                        const start = i * chunkSize
+                        const end = Math.min(f.size, (i + 1) * chunkSize)
+                        const chunk = buffer.slice(start, end)
+                        const hash = arrayBufferToBase62(await crypto.subtle.digest('SHA-256', chunk)).slice(0, 12);
+                        f.hashArray.push(hash)
+                        uploadPromises.push(
+                            this.uploadBuffer(chunk)
+                                .catch((e) => {
+                                    console.error("[uploadNewSet] Error uploading chunk (L307), will throw:", e)
+                                    error = e.message
+                                    throw(e)
+                                }));
+                    }
+                    const joinedHashes = f.hashArray.join('')
+                    f.hash = arrayBufferToBase62(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(joinedHashes))).slice(0, 12);
+                    // debugger;
+                } else {
+                    if (ChannelApi.knownShards.has(f.hash)) {
+                        if (DBG0) console.log(`---- skipping ${f.hash} shard (already known / published)`);
+                        continue;
+                    }
+                    await StorageApi.paceUploads()
+                    if (error) return error;
+                    if (DBG0) console.log(`---- uploading file:`, f)
+                    // uploadPromises.push(this.uploadSetEntry(fileHash))
+                    uploadPromises.push(this.uploadFile(f))
+                }
+            }
+            // wait for all of them to be done
+            await Promise.all(uploadPromises).catch((e) => {
+                console.error("[uploadNewSet] Error in uploadPromises, propagated to 'all' (L329):", e)
+                error = e.message;
+            })
+            console.log("++++ all files have been sent to be uploaded")
+
+            // special case is if the set contains only known shards, in which case set can be sent right away
+            // (because we won't get a 'callback' that we're done from returning messages)
+            if (this.toUpload.length === 0) {
+                console.log("++++ all files already uploaded")
+                this.doneUploadingSet()
+            }
+            return error; // will be 'null' if all went well
+        } catch (e: any) {
+            console.error("[uploadNewSet] Interrupted uploads (L342):", e)
+            return e.message
+        }
+    }
+
+    /** 
+     * Returns buffer contents matching a known buffer (hash); throws if not
+     * actually known. Note that if the corresponding shard (handle) is known
+     * but not downloaded, it will be downloaded, and that returned.
+     */
+    getFileBuffer = async (hash: string): Promise<ArrayBuffer> => {
+        if (BrowserFileHelper.knownBuffers.has(hash)) {
+            return BrowserFileHelper.knownBuffers.get(hash)!
+        } else if (ChannelApi.knownShards.has(hash)) {
+            // const handle = await this.sbfs.fetchData(BrowserFileHelper.knownShards.get(hash)!)
+            const buffer = await this.fetchPayload(ChannelApi.knownShards.get(hash)!)
+            if (buffer instanceof ArrayBuffer) {
+                // BrowserFileHelper.knownShards.set(hash, handle) // update
+                return buffer
+            } else {
+                throw new Error("Could not fetch buffer for hash: " + hash)
+            }
+        } else {
+            throw new Error("Cannot find contents of file (neither in globalBufferMap nor in knownShards)")
+        }
+
+
+        // let handle = BrowserFileHelper.knownShards.get(hash)
+        // if (handle) {
+        //     if (!handle.data) {
+        //         handle = await this.sbfs.fetchData(handle)
+        //         BrowserFileHelper.knownShards.set(hash, handle)
+        //     }
+        //     if (!handle.payload) throw new Error("handle.payload is missing")
+        //     // data = StorageApi.getData(BrowserFileHelper.knownShards.get(hash))!
+        //     data = handle.payload
+        // } else {
+        //     data = BrowserFileHelper.knownBuffers.get(hash)!
+        // }
+        // if (data) {
+        //     console.log(SEP, `For file hash '${hash}', previewing buffer:`, SEP, data, SEP)
+        //     await preview File(data, mimeType, {}) // actually in browser/preview.ts
+        // } else {
+        //     throw new Error("Cannot find contents of file (neither in globalBufferMap nor in knownShards)")
+        // }
+    }
+
+    /**
+     * This takes a 'finished' file set, and stores it on the ledger; computes
+     * some stats. Upon completion, callback is given updated FileSetMeta.
+     */
+    addFileSet = async (fileSetMeta: FileSetMeta) => {
+        if (!this.initialized) throw new Error("[SBFileSystem] Not initialized (L291).")
+        if (!fileSetMeta.fileSetShard || !fileSetMeta.fileSetShard.id) {
+            console.warn("---- File set (meta) does not have a shard ID, skipping whole set")
+            return
+        }
+        if (!fileSetMeta.fileSet || !(fileSetMeta.fileSet instanceof Map)) {
+            console.warn("---- File set (meta) does not have any files ('fileSet' missing or is not a Map), skipping whole set: \n", fileSetMeta)
+            return
+        }
+        this.fileSetMap.set(fileSetMeta.fileSetShard.id, fileSetMeta)
+        if (DBG0) console.log("---- File set (meta) contents added:\n", fileSetMeta)
+        if (DBG2) console.log("---- ... fileSetMap is now:\n", this.fileSetMap)
+        let count = 0;
+        let totalBytes = 0;
+        let lastDate = new Date(0); // Initialize with Epoch Time
+        for (let value of fileSetMeta.fileSet.values()) {
+            count++;
+            totalBytes += value.size || 0;
+            if (value.lastModified && typeof value.lastModified === 'string') {
+                const currentLastModified = new Date(value.lastModified);
+                if (currentLastModified > lastDate)
+                    lastDate = currentLastModified;
+            }
+        }
+        if (DBG2)
+            console.log(
+                SEP,
+                'File Set Meta:', '\n',
+                `Count: ${count}`, '\n',
+                `Total Bytes: ${totalBytes}`, '\n',
+                `Last Modified: ${lastDate}`, '\n',
+                'Sender UserID: ', fileSetMeta.senderUserId,
+                SEP)
+
+        if (this.callbacks.newFileSet) {
+            fileSetMeta.count = count;
+            fileSetMeta.totalBytes = totalBytes;
+            this.callbacks.newFileSet(fileSetMeta)
+        }
+    }
+
+    /**
+     * Processes incoming messages. Returns the message 'type', if it was understood
+     * and acted upon, otherwise returns null.
+     */
+    receiveMessage = async (msg: Message | string): Promise<string | null> => {
+        if (typeof msg === 'string') {
+            if (DBG2) console.log(SEP, "[SBFileSystem] ++++ Received message (string), ignoring: '", msg, "'", SEP)
+            return null;
+        }
+        const body = msg.body
+        if (DBG2) console.log(SEP, "[SBFileSystem] ++++ Received message:\n  ", body, SEP)
+        switch (body.messageType) {
+            case MessageType.MSG_FILE_SET:
+                if (DBG2) console.log("==== File Set Message received")
+
+                let fileSet: Map<string, SBFile>
+
+                // first we get the file set from the shard in body.fileSetShard
+                if (body.fileSetShard) {
+                    // const fileSetObject = await this.downloadFile(body.fileSetShard) as SBFile
+                    const fileSetObject = new SBFile(await this.downloadFile(body.fileSetShard));
+                    fileSet = fileSetObject.fileMetaDataMap!
+                } else if (body.fileSet) {
+                    fileSet = body.fileSet
+                } else {
+                    console.error("No file set or file set shard in message")
+                    break;
+                }
+                // const fileSetObject = body.fileSet as SBFile
+
+                // const receivedFileList = new Map()
+                // for (const [key, value] of fileSetObject.fileMetaDataMap!.entries()) {
+                //     receivedFileList.set(key, value)
+                // }
+
+                if (!(fileSet instanceof Map)) {
+                    console.warn("[SBFileSystem] Received file set, but it doesn't contain a file set (ignoring)")
+                    break;
+                }
+
+                const fs: FileSetMeta = {
+                    _id: msg._id,
+                    senderUserId: msg.sender,
+                    senderPublicKey: msg.senderPublicKey,
+                    serverTimestamp: msg.serverTimestamp,
+                    fileSet: fileSet, // fileSetObject.fileMetaDataMap!,
+                    fileSetShard: body.fileSetShard,
+                }
+
+                await this.addFileSet(fs)
+
+                if (DBG0) console.log("---- Received MSG_FILE_SET: ", fs);
+                break;
+            case MessageType.MSG_NEW_SHARD:
+                // console.log("==== New Shard Message received")
+                // const obj = JSON.parse(message.contents)
+                // Tracks progress
+                if (this.toUpload.length > 0) {
+                    if (this.toUpload.includes(body.hash)) {
+                        this.uploaded.push(body.hash)
+                        if (this.callbacks.setProgressBarWidth)
+                            this.callbacks.setProgressBarWidth(Math.ceil(this.uploaded.length / this.toUpload.length * 100));
+                        if (this.uploaded.length === this.toUpload.length) {
+                            console.log("++++ all files uploaded")
+                            this.doneUploadingSet()
+                            // ready for new sets:
+                            this.toUpload = []
+                            this.uploaded = []
+                        }
+                    }
+
+                }
+                ChannelApi.knownShards.set(body.hash, body.handle)
+                ChannelApi.knownShards.set(body.hash.slice(0, 12), body.handle)
+                break;
+            case 'PING':
+                console.info("[SBFileSystem] PING message received")
+                break;
+            default:
+                if (DBG2) console.info('---- Ignoring unknown message type:', body.messageType);
+                return null
+        }
+        return (body.messageType)
+    }
+
+    /** Convenience, uploads just a buffer */
+    uploadBuffer = async (buffer: ArrayBuffer, hash?: string) => {
+        if (!this.initialized) throw new Error("[SBFileSystem] Not initialized (L406).")
+        if (!this.ledger || !this.options.budgetHandle)
+            throw new Error("[SBFileSystem] Ledger or budget handle not set up, cannot upload files. (L395")
+        const verifyHash = arrayBufferToBase62(await crypto.subtle.digest('SHA-256', buffer)).slice(0, 12);
+        if (!hash)
+            hash = verifyHash
+        else if (hash !== verifyHash)
+            throw new Error(`[uploadBuffer] Hash mismatch: ${hash} !== ${verifyHash}`)
+
+        if (ChannelApi.knownShards.has(hash)) {
+            console.info(`[uploadBuffer] Shard already known: ${hash}`)
+            return ChannelApi.knownShards.get(hash)
+        }
+
+        this.toUpload.push(hash)
+        const handle = await this.SB.storage.storeData(buffer, this.options.budgetHandle)
+        await handle.verification
+        console.log("WE GOT BACK HANDLE:", handle)
+
+        // now we add it to the set of known hash->handle mappings
+        ChannelApi.knownShards.set(hash, handle)
+        ChannelApi.knownShards.set(hash.slice(0, 12), handle) // find on prefix
+
+        // clear it from 'knownBuffers' (it's now shardifed), in case it's there (it might not be)
+        BrowserFileHelper.knownBuffers.delete(hash)
+
+        // add knowledge on the ledger; ToDo possibly batch for large sets?
+        const obj = { messageType: MessageType.MSG_NEW_SHARD, hash: hash, handle: handle, senderUsername: this.options.username }
+        await this.ledger.send(obj)
+
+        return handle
+    }
+
+    /** Main workhorse, uploads a file. */
+    uploadFile = async (file: SBFile) => {
+        if (!this.initialized) throw new Error("[SBFileSystem] Not initialized (L522).")
+        if (!this.ledger || !this.options.budgetHandle)
+            throw new Error("[SBFileSystem] Ledger or budget handle not set up, cannot upload files. (L395")
+        // TODO: another bit of confusion, this actually only uploads a file when
+        //       working in the BrowserFileHelper 'context'. refactor?
+        StorageApi.paceUploads()
+        console.log("[uploadFile] file:", file)
+        if (!file.hash) throw new SBError("file.hash is missing")
+        const buffer = BrowserFileHelper.knownBuffers.get(file.hash)
+        if (!buffer)
+            throw new SBError(`**** failed to find buffer for ${file.hash}`)
+
+        console.log(SEP, `For file hash '${file.hash}', uploading buffer:`, buffer, SEP);
+
+        // this.toUpload.push(file.hash)
+        // const handle = await this.SB.storage.storeData(buffer, this.options.budgetHandle)
+        // await handle.verification
+        // console.log("WE GOT BACK HANDLE:", handle)
+
+        // // now we add it to the set of known hash->handle mappings
+        // ChannelApi.knownShards.set(file.hash, handle)
+        // ChannelApi.knownShards.set(file.hash.slice(0, 12), handle) // find on prefix
+
+        // // clear it from 'knownBuffers' (it's now sharidifed)
+        // BrowserFileHelper.knownBuffers.delete(file.hash)
+
+        // // our mapping object
+        // const obj = { messageType: MessageType.MSG_NEW_SHARD, hash: file.hash, handle: handle, senderUsername: this.options.username }
+        // const response = await this.ledger.send(obj)
+
+        const handle = await this.uploadBuffer(buffer, file.hash)
+
+        console.log(`++++ File shard has been sent on channel:`, handle);
+    }
+
+    /**
+     * Convenience wrapper around ChannelApi's fetchData.
+     */
+    async fetchData(handle: ObjectHandle): Promise<ObjectHandle> {
+        return this.SB.storage.fetchData(handle);
+    }
+
+    /** Download an SBFile */
+    async downloadFile(handle: ObjectHandle): Promise<SBFile> {
+        handle = await this.fetchData(handle);
+        // const sbFile = await this.SB.storage.fetchPayload(handle) as SBFile;
+        const sbFile = new SBFile(await this.SB.storage.fetchPayload(handle))
+        // for now, this is our only sanity check that this is actually an SBFile
+        if (sbFile._SBFSVersion !== '2024-02-01-0002') {
+            console.warn("[SBFS] File version not supported, or is not an SBFile. Will try to process anyway.")
+        }
+        // sbFile.uniqueShardId = handle.id;
+        return sbFile;
+    }
+
+    // async fetchPayload(fileOrHandle: SBFile | ObjectHandle): Promise<any> {
+    //     // ToDo: we probably need to refactor some confusion between the role of
+    //     // "SBFile" and "ObjectHandle" in the API; in the meantime, we'll use
+    //     // this wrapper function to paper over some cracks
+    //     if (!fileOrHandle) throw new SBError("[SBFS] No file or handle provided");
+    //     let handle: ObjectHandle = fileOrHandle as ObjectHandle;
+    //     if (!_check_ObjectHandle(handle)) {
+    //         const file = fileOrHandle as SBFile;
+    //         if (file.file) throw new SBError("[SBFS] Type handling for inline files not yet implemented");
+    //         if (!file.handle) throw new SBError("[SBFS] No handle in SBFile, cannot fetch file contents");
+    //         handle = file.handle;
+    //         if (!_check_ObjectHandle(handle)) throw new SBError("[SBFS] Invalid handle in SBFile");
+    //     }
+    //     const downloadedFile = await this.fetchData(handle);
+    //     if (!downloadedFile.payload) throw new SBError("[SBFS] No payload in downloaded file");
+    //     return downloadedFile.payload;
+    // }
+
+
+
+    // // older/simpler interface, just gives you the buffer; note that it
+    // // hard-codes the assumption that 'payload' is an ArrayBuffer
+    // async downloadBuffer(handle: ObjectHandle) {
+    //     handle = await this.SB.storage.fetchData(handle);
+    //     return handle.payload as ArrayBuffer;
+    // }
+
+}
+
+
+if (DBG0) console.warn("==== SBFileSystem.ts loaded ====")
+
+
+// deprecated
+// uploadBuffer() 
+// return new Promise((resolve) => {
+//     if (!this.SB.storage) {
+//         console.log("'this.server': ", this.SB);
+//         throw new SBError("storage not initialized")
+//     }
+//     this.SB.storage.storeData(data, this.budgetChannel).then((res) => {
+//         // res.fileName = name
+//         res.dateAndTime = new Date().toISOString()
+//         Promise.resolve(res.verification).then((v) => {
+//             res.verification = v as string;
+//             resolve(res)
+//         })
+//     })
+// })
+
+// async uploadFile(file: SBFile): Promise<ObjectHandle> {
+//     if (!this.budgetChannel) throw new SBError("[SBFS] No budgetchannel provided, cannot upload file.");
+//     if (file._SBFSVersion) throw new SBError("file._SBFSVersion already defined, reserved for SBFS");
+//     file._SBFSVersion = '2024-02-01-0002';
+//     file.timeStamp = Date.now();
+//     if (file.file) file.actualFileSize = file.file.byteLength
+//     const res = await this.SB.storage.storeData(file, this.budgetChannel);
+//     res.verification = await res.verification
+//     return res;
+// }
+
+// UPDATE ... no longer relevant, i think?  (was part of "sbfs")
+// uploadBrowserFileList(myChannelId: ChannelId, fileMap: Map<any, any>, bufferMap: Map<any, any>) {
+//     console.info('uploadBrowserFileList() not implemented yet')
+//     console.log(myChannelId, fileMap, bufferMap)
+//     // ToDo: take from multi-file demo
+//     // return new Promise((resolve) => {
+//     //     let promises: Promise<Interfaces.ObjectHandle>[] = [];
+//     //     for (let i = 0; i < fileList.length; i++) {
+//     //         promises.push(this.uploadBuffer(myChannelId, fileList[i], fileList[i].name));
+//     //     }
+//     //     Promise.all(promises).then((res) => {
+//     //         resolve(res);
+//     //     });
+//     // });
+// }
+
+
+
+
+// // async uploadCurrentFiles(myChannelId: ChannelId, callback: (res: ObjectHandle) => void) {
+// //   if (DBG0) console.log("==== uploadCurrentFiles() ====");
+// //   let directory: { [key: string]: string } = {};
+// //   console.log("Current file list: ")
+// //   console.log(this.currentFileList);
+// //   this.currentFileList.forEach((value: { [key: string]: any }, key: string) => {
+// //     if (DBG0) console.log("File: " + value.name);
+// //     let dirEntry = getProperties(value, ["name", "type", "size", "lastModified", "webkitRelativePath"]);
+// //     directory[key] = dirEntry as unknown as string;
+// //   });
+// //   console.log("Directory: ");
+// //   console.log(directory);
+// // }
+
+// /**
+//  * SBFile
+//  * @class
+//  * @constructor
+//  * @public
+//  */
+// export class SBFile extends SBMessage {
+//   // encrypted = false
+//   // contents: string = ''
+//   // senderPubKey: CryptoKey
+//   // sign: Promise<string>
+
+//   data: Dictionary<string> = {
+//     previewImage: '',
+//     fullImage: ''
+//   }
+//   // (now extending SBMessage)
+//   image = '';
+//   image_sign = '';
+//   // imageMetaData: ImageMetaData = {}
+
+//   // file is an instance of File
+//   constructor(channel: Channel, file: File /* signKey: CryptoKey, key: CryptoKey */) {
+//     super(channel, '')
+//     console.warn('working on SBFile()!')
+//     console.log('file: ', file)
+
+//     // this.senderPubKey = key;
+//     // ... done by SBMessage parent?
+//     // this.sign = sbCrypto.sign(channel.keys.channelSignKey, this.contents);
+//     // if (file.type.match(/^image/i)) {
+//     //   this.#asImage(file, signKey)
+//     // } else {
+//     //   throw new Error('Unsupported file type: ' + file.type);
+//     // }
+//   }
+
+//   //   async #asImage(image: File, signKey: CryptoKey) {
+//   //     throw new Error(`#asImage() needs carryover from SBImage etc (${image}, ${signKey})`)
+
+//   //   this.data.previewImage = this.#padImage(await(await this.#restrictPhoto(image, 4096, 'image/jpeg', 0.92)).arrayBuffer());
+//   //   const previewHash: Dictionary = await this.#generateImageHash(this.data.previewImage);
+//   //   this.data.fullImage = image.byteLength > 15728640 ? this.#padImage(await(await this.#restrictPhoto(image, 15360, 'image/jpeg', 0.92)).arrayBuffer()) : this.#padImage(image);
+//   //   const fullHash: Dictionary = await this.#generateImageHash(this.data.fullImage);
+//   //   this.image = await this.#getFileData(await this.#restrictPhoto(image, 15, 'image/jpeg', 0.92), 'url');
+//   //   this.image_sign = await sbCrypto.sign(signKey, this.image);
+//   //   this.imageMetaData = JSON.stringify({
+//   //     imageId: fullHash.id,
+//   //     previewId: previewHash.id,
+//   //     imageKey: fullHash.key,
+//   //     previewKey: previewHash.key
+//   //   });
+//   //   this.imageMetadata_sign = await sbCrypto.sign(signKey, this.imageMetaData)
+//   // }
+
+// } /* class SBFile */
+
+
+// ToDo: some old code that was intended for SBFile, not factored into it yet
+
+// // saveFile(channel: Channel, sbFile: SBFile) {
+// //   console.log("saveFile()")
+// //   // const metaData: Dictionary = jsonParseWrapper(sbFile.imageMetaData, 'L1732');
+// //   const metaData: ImageMetaData = sbFile.imageMetaData
+// //   const fullStorePromise = this.storeImage(sbFile.data.fullImage, metaData.imageId!, metaData.imageKey!, 'f');
+// //   const previewStorePromise = this.storeImage(sbFile.data.previewImage, metaData.previewId!, metaData.previewKey!, 'p');
+// //   Promise.all([fullStorePromise, previewStorePromise]).then((results) => {
+// //     results.forEach((controlData) => {
+// //       channel.sendSbObject({ ...controlData, control: true });
+// //     });
+// //     // psm: need to generalize classes ... sbFile and sbImage descent from sbMessage?
+// //     // channel.sendSbObject(sbFile);
+// //     channel.send(sbFile)
+// //   });
+// // }
+
+// // async sendSbObject(file: SBFile) {
+// //   return (this.send(file))
+// //   // this.ready.then(() => {
+// //   //   this.#wrap(file /* , this.#keys!.encryptionKey */).then((payload) => this.send(payload));
+// //   // } else {
+// //   //   this.#queue.push(file);
+// //   // }
+// // }
+

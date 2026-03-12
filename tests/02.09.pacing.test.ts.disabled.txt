@@ -1,0 +1,47 @@
+#!/usr/bin/env -S deno run --allow-read --allow-write --allow-net --allow-env
+
+let activeTasks = 0;
+const MAX_CONCURRENT = 2;
+const barrierPromises: (() => void)[] = [];
+
+async function someFunction(parameter: number) {
+    // wait 0.1 seconds then return 2x the parameter
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    return parameter * 2;
+}
+
+async function pacer(parameter: number): Promise<number> {
+    if (activeTasks >= MAX_CONCURRENT) {
+        console.log("**** Too many active tasks, waiting for a slot")
+        await new Promise<void>((resolve) => {
+            barrierPromises.push(resolve);
+        });
+    }
+    // start our task
+    activeTasks++;
+    const result = await someFunction(parameter);
+    activeTasks--;
+    if (barrierPromises.length > 0)
+        barrierPromises.shift()!();
+    return result;
+}
+
+async function test01() { 
+    // call pacer() as fast as possible with 0..100 as parameter
+    const promises: Array<Promise<number>> = [];
+    for (let i = 0; i < 100; i++) {
+        promises.push(pacer(i));
+    }
+    const results = await Promise.all(promises);
+    console.log("Results: ", results);
+}
+
+Deno.test("[DBG0] [fast] 02.06 MessageQueue Stress Test", async () => {
+    await test01();
+});
+
+if (import.meta.main) {
+    console.log('\n===================== 02.09 Pacing Test Start =====================');
+    await test01();
+    console.log('\n===================== 02.09 Pacing Test End =====================');
+}

@@ -1,0 +1,17 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "lib": [
+            "webworker",
+            "esnext"
+        ]
+    },
+    "exclude": [
+        "build",
+        "dist",
+        "src/boot/loaderLoader.ts"
+    ],
+    "include": [
+        "index.ts"
+    ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@os384/lib384",
+  "version": "0.3.0-rc3",
+  "exports": "./src/index.ts",
+
+  "tasks": {
+    "build":       "deno run -A build.ts",
+    "build:debug": "deno run -A build.ts --debug",
+    "build:debug2": "deno run -A build.ts --debug2",
+    "dev":         "deno run -A build.ts --watch",
+
+    "test":         "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run tests/",
+    "test:fast":    "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[fast]' tests/",
+    "test:channel": "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[channel]' tests/",
+    "test:slow":    "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[slow]' tests/",
+    "test:coverage": "deno test --coverage=./tests/coverage --no-check --allow-read --allow-write --allow-net --allow-env --allow-run tests/ && deno coverage --exclude='deno' --exclude='env.js' --exclude='config.js' --exclude='384.esm.js' --lcov tests/coverage/ > tests/coverage/lcov.info",
+
+    "deploy":       "deno run -A tools/deploy.ts",
+    "clean":        "rm -rf dist/*"
+  },
+
+  "imports": {
+    "@std/assert": "./tests/_std_assert_shim.ts"
+  }
+}

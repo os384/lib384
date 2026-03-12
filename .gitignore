@@ -1,0 +1,24 @@
+# Build output
+dist/
+build/
+
+# Local environment / credentials — copy env.example.js to env.js and fill in
+env.js
+config.js
+
+# Test artifacts
+tests/coverage/
+tests/db/
+tests/384.esm.js
+tests/384.esm.js.map
+tests/384.iife.js
+
+# Deno / Node artifacts
+node_modules/
+.deno/
+deno.lock
+
+# OS / editor
+.DS_Store
+*.swp
+.vscode/settings.json

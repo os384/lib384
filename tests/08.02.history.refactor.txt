@@ -1,0 +1,202 @@
+
+
+/// ARCHIVE earlier deep history variations
+// async function printCore(data: MessageHistory, indent: string = "") {
+//     console.log(indent + "type            : ", data.type)
+//     console.log(indent + "version         : ", data.version)
+//     console.log(indent + "channelId       : ", data.channelId)
+//     console.log(indent + "ownerPublicKey  : ", data.ownerPublicKey)
+//     console.log(indent + "created         : ", data.created)
+//     console.log(indent + "channelServer   : ", data.channelServer)
+//     console.log(indent + "from            : ", data.from)
+//     console.log(indent + "to              : ", data.to)
+//     console.log(indent + "count           : ", data.count)
+// }
+
+
+
+// async function _printDirectory(c: Channel, history: MessageHistoryDirectory, indent: string = "") {
+//     if (history.shards) for (const [key, value] of history.shards) {
+//         assert(_check_SBObjectHandle(value), "shard is not an SBObjectHandle")
+//         const rawShard = await SB.storage.fetchData(value)
+//         const data = extractPayload(await SB.storage.fetchPayload(rawShard)).payload as MessageHistoryEntry | MessageHistoryDirectory
+//         if (data.type === 'directory') {
+//             printCore(data, indent + " + ")
+//             await _printDirectory(c, data, indent + " | ")
+//         } else if (data.type === 'entry') {
+//             printCore(data, indent + " + ")
+//             // and now we iterate through the map 'messages' with key, value pairs
+//             for (const [key, value] of data.messages.entries()) {
+//                 const m = await c.extractMessage(extractPayload(value).payload)
+//                 console.log(indent + 'getHistory() entry (key):  ', key, m!.body)
+//             }
+//         } else {
+//             throw new Error("Unexpected type in MessageHistory")
+//         }
+//    }    
+//     if (history.subdirectories) for (const [key, value] of history.subdirectories) {
+//         console.log(indent + 'getHistory() entry (key):  ', key)
+//         _printDirectory(c, value as MessageHistoryDirectory, indent + " | ")
+//     }
+// }
+
+// async function printDirectory(c: Channel, history: MessageHistoryDirectory)
+// {
+//     if (history.depth >= 0) { 
+//         console.log(SEP, "Message History Directory:", SEP)
+//         await _printDirectory(c, history)
+//     } else {
+//         console.log(SEP, "Message History Directory is empty (channel has no history, yet)", SEP)
+//     }
+// }
+
+
+
+
+
+// async function getLatestMessages(h: SBChannelHandle) {
+//     console.log(testName + " [getAllMessages] Getting all messages.")
+//     const protocol = await aesTestProtocol()
+//     const testChannel = await new Channel(h, protocol).ready
+//     const messageKeys = await testChannel.getMessageKeys()
+//     let keys = messageKeys.keys
+//     const sortedKeys = Array.from(keys).sort()
+    
+//     const chunkSize = Snackabra.MAX_MESSAGE_SET_SIZE;
+//     const totalChunks = Math.ceil(sortedKeys.length / chunkSize);
+    
+//     for (let i = 0; i < totalChunks; i++) {
+//         const chunkStart = i * chunkSize;
+//         const chunkEnd = Math.min((i + 1) * chunkSize, sortedKeys.length);
+//         const currentKeys = new Set(sortedKeys.slice(chunkStart, chunkEnd));
+        
+//         console.log(`Chunk ${i + 1} of ${totalChunks}`);
+//         const messages = await testChannel.getMessageMap(currentKeys);
+//         for (const [key, value] of messages.entries()) {
+//             console.log('getAllMessages() entry (key):', key, value.body);
+//         }
+//     }
+
+//     console.log(SEP, testName + " [getAllMessages] DONE")
+// }
+
+
+
+// async function feedSocket(h: SBChannelHandle, count: number, interval: number) {
+//     return new Promise(async (resolve, reject) => {
+//         try {
+//             let messagesLeft = count
+//             let messagesReceived = 0
+//             let i = 0
+//             const myOnMessage = (msg: Message | string) => {
+//                 const m = (typeof msg === 'string') ? msg : msg.body
+//                 console.log(SEPx, `++++ [#${messagesReceived}] ++++ ${testName} message received:\n`, m);
+//                 if (m.ts) {
+//                     if (messagesReceived++ >= count) {
+//                         console.log(SEPx, `${testName} We have received enough messages, done`)
+//                         resolve("done");
+//                         return
+//                     }
+//                 }
+//             }
+
+//             const s = await new ChannelSocket(h, myOnMessage, await aesTestProtocol()).ready
+//             console.log(SEPx, '[helper.05.01] We are now listening for messages on channel:', h.channelId, SEP, /* JSON.stringify(h, null, 2), SEP */)
+
+//             /* const r = */ await s.send('hello there from ${testName}, we should be ready now = ' + new Date().toISOString())
+//                 .catch((e: any) => { throw e })
+
+//             const intervalId = setInterval(() => {
+//                 console.log(SEPx, `${testName} sending ping message #${messagesLeft}`)
+//                 s.send({ t: `[ ${i++} ] [#${messagesLeft}] ping from ${testName}`, ts: new Date().toLocaleString() })
+//                     .catch((e: any) => { throw e })
+//                 if (messagesLeft-- <= 0) {
+//                     console.log(SEPx, `${testName} Time is up, closing channel`, SEP)
+//                     // s.close()
+//                     clearInterval(intervalId);
+//                 }
+//             }, interval * 1000);
+
+//         } catch (e: any) {
+//             console.error(`${testName} Error in feedSocket: `, e)
+//             // let's print stack trace here
+//             console.error(e.stack)
+//             reject(e)
+//         }
+//     });
+// }
+
+
+// async function printDirectory(c: Channel, history: MessageHistoryDirectory, indent: string = "")
+// {
+//     console.log(SEP, "Message History Directory:", SEP)
+//     // iterate over the entries in the 'entries' of history.entries, in a key, value pair
+//     if (history.subdirectories) for (const [key, value] of history.subdirectories) {
+//         console.log(indent + 'getHistory() entry (key):  ', key)
+//         if (value.type === 'directory') {
+//             printDirectory(c, value as MessageHistoryDirectory, indent + " | ")
+//         } else {
+//             // otherwise it's a shard handle
+//             assert(_check_SBObjectHandle(value as any), "value is not an SBObjectHandle")
+//             const shard = value as SBObjectHandle
+//             // console.log("Will fetch from shard ", shard)
+//             const rawShard = await SB.storage.fetchData(shard)
+//             // console.log("Got raw shard: ", rawShard)
+//             const data = extractPayload(StorageApi.getPayload(rawShard)).payload as MessageHistoryEntry
+//             printCore(data, indent + " + ")
+//             // and now we iterate through the map 'messages' with key, value pairs
+//             for (const [key, value] of data.messages.entries()) {
+//                 const m = await c.extractMessage(extractPayload(value).payload)
+//                 console.log(SEPx, indent + 'getHistory() entry (key):  ', key, m!.body)
+//             }
+            
+//         }
+//     }
+// }
+
+
+
+    // console.log(SEP, 'getHistory() results:', SEP, history, SEP )
+    // // now let's get the contents
+    // const shard2 = await SB.storage.fetchData(history)
+    // const payload = StorageApi.getPayload(shard2)
+    // const data = payload
+    // console.log(SEP, 'Got a getHistory() payload...')
+    // // we know 'data' is a Map<string, ArrayBuffer> and we want to call 'extractPayload' on each buffer
+    // for (const [key, _value] of data) {
+    //     // console.log(SEP, 'getHistory() payload:', SEP, key, SEP, utils.extractPayload(value), SEP )
+    //     console.log('getHistory() entry (key):  ', key)
+    // }
+    // console.log(SEP, 'getHistory() done', SEP)
+    // // const myOnMessage = (msg: Message) => { console.log('[helper.05.02] message received:', msg) }
+    // // const s = await new ChannelSocket(handle!, myOnMessage, protocol).ready
+
+
+    // async function getLatestMessages(h: SBChannelHandle) {
+//     console.log(testName + " [getLatestMessages] Getting messages (slice).")
+//     const protocol = await aesTestProtocol()
+//     const testChannel = await new Channel(h, protocol).ready
+//     const messageKeys = await testChannel.getMessageKeys()
+//     let keys = messageKeys.keys
+
+//     if (keys.size > Snackabra.MAX_MESSAGE_SET_SIZE) {
+//         console.log("We have more than MAX_MESSAGE_SET_SIZE messages, will slice the set.")
+//         const sortedKeys = Array.from(keys).sort()
+//         const sliceKeys = sortedKeys.slice(-Snackabra.MAX_MESSAGE_SET_SIZE)
+//         keys = new Set(sliceKeys)
+//     }
+//     const messages = await testChannel.getMessageMap(keys)
+//     console.log(testName + "[getLatestMessages] Getting messages:", SEP)
+//     for (const [key, value] of messages.entries())
+//         console.log('getLatestMessages() entry (key):  ', key, value.body)
+
+//     console.log(SEP, testName + " [getLatestMessages] DONE")
+// }
+
+
+// const testName = "[08.02] "
+
+// const COUNT = 50 // number of messages to send
+// const INTERVAL = 1 // seconds between messages
+
+

@@ -1,0 +1,577 @@
+<html lang="en">
+<!-- (c) 2023 Copyright 384 (tm) -->
+
+<head>
+    <meta charset="UTF-8">
+    <title>SB384 Library Test (ESM)</title>
+    <meta name="viewport" content="width=device-width,height=device-height,initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg%20version%3D%221.1%22%20id%3D%22_x33_84%22%20xmlns%3D%22http%3A%2F%2Fwww%2Ew3%2Eorg%2F2000%2Fsvg%22%20xmlns%3Axlink%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxlink%22%20x%3D%220px%22%20y%3D%220px%22%0A%09%20viewBox%3D%220%200%20460%20460%22%20style%3D%22enable-background%3Anew%200%200%20460%20460%3B%22%20xml%3Aspace%3D%22preserve%22%3E%0A%3Cstyle%20type%3D%22text%2Fcss%22%3E%0A%09.st0%7Bfill%3A%23FF5C42%3B%20fill-rule%3Aevenodd%3B%7D%0A%3C%2Fstyle%3E%0A%3Cpath%20id%3D%22Three%22%20class%3D%22st0%22%20d%3D%22M81.3%2C123C56.4%2C158.8-34.5%2C240.1%2C47%2C249.9C150%2C301%2C45.6%2C331.7%2C0%2C329.3c1%2C24.1%2C2.1%2C47.9%2C2.9%2C72.3%0A%09c33.7-4.1%2C69.3-8.3%2C99.8-36c63-54.8%2C23.5-157.3-34.2-165.1c19.1-29.3%2C47-50.1%2C61.8-83.7c-3-18.8%2C1.7-50.8-5.7-63.3%0A%09c-39.3%2C0-78.6%2C0-118%2C0c-6.9%2C14.8-0.7%2C48.4-2.6%2C69.4L81.3%2C123L81.3%2C123z%22%2F%3E%0A%3Cpath%20id%3D%22Eight%22%20class%3D%22st0%22%20d%3D%22M254.2%2C214.8c69.9-56.7%2C27-187.3-41.2-167.8c-63%2C3.6-88.6%2C127.1-28.4%2C178.4%0A%09c-62.9%2C48.7-40.8%2C179.2%2C26.9%2C175.7C285.7%2C414.2%2C331.7%2C277.4%2C254.2%2C214.8L254.2%2C214.8z%0A%09M221.1%2C341.9c-24%2C2.9-38.6-38.3-25-71.4c3.4-7.6%2C7.7-19.7%2C13.4-21.5C238.4%2C269.3%2C276.3%2C333.8%2C221.1%2C341.9L221.1%2C341.9z%0A%09M229.6%2C192.1c-23-12.9-56.5-72.5-15.7-85.9C249.1%2C93.4%2C257.2%2C165.9%2C229.6%2C192.1z%22%2F%3E%0A%3Cpath%20id%3D%22Four%22%20class%3D%22st0%22%20d%3D%22M377.8%2C55.8c-16.2%2C1.5-37.6-11.2-51-0.9c-10.5%2C89.3-26.6%2C194.5-16.6%2C281.3c26.6%2C4.1%2C60.8-8%2C83.9%2C4.4%0A%09c-3.4%2C75.9%2C3.4%2C45.5%2C39.2%2C53.3c9.9-2.2%2C1.7-42.8%2C4.3-57.5c5.5-2.4%2C17.1%2C5.6%2C19-4.1c-0.5-21.7%2C2.7-42.3%2C3.4-64h-22.5V153.9%0A%09c-65.3%2C2.4-38.3%2C22.9-43.4%2C110.1c-11.6%2C11.9-34.7%2C0.5-49.9%2C4.4C355.4%2C197%2C366.6%2C126.7%2C377.8%2C55.8L377.8%2C55.8z%22%2F%3E%0A%3C%2Fsvg%3E" />
+    <link rel="stylesheet" href="./style.02.css">
+</head>
+
+<body>
+    <noscript>
+        <p>
+            <b>
+                This demo requires javascript. If you are seeing this,
+                then you are probably in a context that won't run code.
+            </b>
+        </p>
+    </noscript>
+
+    <div class="logo-container">
+        <svg width="120" height="120">
+            <use href="#logo" />
+        </svg>
+    </div>
+
+    <h1>JSLib Testing</h1>
+    <p>
+        <b>384 library is loaded as ESM module. Note that this means
+            you need to run "server.py" due to CORS. (See console)
+        </b>
+    </p>
+    <p>
+        Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam
+        voluptatum, quibusdam, voluptate, quia voluptas quod quos
+        voluptatibus quas quidem voluptatem dolorum. Quisquam voluptatum,
+        quibusdam, voluptate, quia voluptas quod quos voluptatibus quas
+        quidem voluptatem dolorum.
+    </p>
+
+    <p><br /></p>
+    <hr />
+    <p><br /></p>
+
+    <h3>Online/Offline Tests</h3>
+    <p>First 'connect', that does nothing except connect and then track
+        online/offline. Then start traffic. Then experiment with the network console
+        in dev tools (eg online/offline). See console for results.
+    </p>
+
+    <button class="file-upload" id="test04">Connect</button>
+    <button class="file-upload" id="test05">Start Traffic</button>
+
+
+    <p><br /><br /><br /></p>
+    <div class="centered"><i>&copy; 2023 Copyright 384&trade;</i></div>
+    <p><br /><br /><br /></p>
+</body>
+
+<script src="./env.js"></script>
+<script src="./config.js"></script>
+
+<script type="module">
+    const ourChannelName = "index.html.test09"
+
+    import * as __ from './384.esm.js'
+    window.__ = __;
+    console.log("[index.html] This should be imported:\n", __)
+
+    window.SnackabraObject = new __.ChannelApi(configuration.channelServer, configuration.DEBUG);
+    // window.SnackabraObject = new __.Snackabra(configuration.channelServer, true); // to override debug
+
+    // run tests once page has finished loading
+    window.onload = async () => {
+        console.log(SEP, "[index.html] Page has loaded; running tests.", SEP)
+
+        // basic key generation
+        await test00()
+
+        // generates a new channel; uses local storage; shows Owner handle
+        await test01(ourChannelName)
+
+        // // as above, same channel, but now a visitor
+        // await test02(ourChannelName, 'visitor02')
+
+        // // does a basic feed/consume test
+        // await test03(ourChannelName, 'visitor03')
+
+        // // basic 'online/offline' test
+        // await test04(ourChannelName, 'visitor04')
+
+        // __.ChannelApi.on('online', () => {
+        //     console.log("+++ SnackabraObject is online +++")
+        // })
+        // __.ChannelApi.on('offline', () => {
+        //     console.log("+++ SnackabraObject is offline +++")
+        // })
+        // __.ChannelApi.on('unknownNetworkStatus', () => {
+        //     console.log("+++ SnackabraObject network status is UNKNOWN +++")
+        // })
+
+        // // stream tests
+        // await test06()
+
+        // will work if the token is valid; this is a bootstrap operation
+        // await test99("zzR5Ljv8LlYjgOnO5yOr4Gtgr9yVS7dTAQkJeVQ4I7w")
+
+
+    }
+
+
+    async function test00() {
+        console.log("==== Starting test00")
+
+        const key1 = await (new __.SB384().ready)
+        console.log("Generated basic SB384 key:\n", key1)
+        printKey(key1)
+
+        const key2 = await (new __.ChannelKeys()).ready
+        console.log("Generated basic ChannelKeys:\n", key2)
+        printChannelKeys(key2)
+    }
+
+    async function test01(channelName) {
+        const newChannel = await getOwnerHandle(ourChannelName)
+        console.log(
+            '\n', SEP,
+            `[test 01] Channel handle for OWNER':`,
+            SEP,
+            JSON.stringify(newChannel, null, 2), "\n",
+            SEP)
+    }
+
+    async function test02(channelName, visitorName) {
+        const newChannel = await getVisitorHandle(ourChannelName, visitorName)
+        console.log(
+            '\n', SEP,
+            `[test 02] Channel handle for '${visitorName}':`,
+            SEP,
+            JSON.stringify(newChannel, null, 2), "\n",
+            SEP)
+    }
+
+    const keyInfo = {
+        salt1: new Uint8Array([179, 118, 123, 163, 161, 247, 188, 154, 75, 120, 116, 168, 126, 172, 251, 125]),
+        // salt1: new Uint8Array([179, 118, 123, 163, 161, 247, 168, 126, 172, 251, 188, 154, 75, 120, 116, 125]),
+        iterations1: 100000,
+        iterations2: 10000,
+        hash1: "SHA-256",
+        summary: "PBKDF2 - SHA-256 - AES-GCM"
+    }
+
+    // const aesTestProtocol = new __.Protocol_AES_GCM_256("this is a passphrase", keyInfo)
+    async function aesTestProtocol() {
+        const p = new __.Protocol_AES_GCM_256("this is a passphrase", keyInfo)
+        await p.ready()
+        return p
+    }
+
+    function createMessageHandler(user) {
+        return (msg) => {
+            if (typeof msg === 'string') {
+                console.log(`++++ [${user}] ++++ 'string' message received: '${msg}'`);
+            } else {
+                const m = msg.body;
+                console.log(`[index.html] [${user}] Received message:\n`, m);
+            }
+        };
+    }
+
+    function nullMessageHandler(msg) {
+        // null, do nothing
+    }
+
+    async function test03(channelName, visitorName) {
+        const newChannel = await getVisitorHandle(channelName, visitorName)
+
+        let feederResolve, feederReject;
+        const feederPromise = new Promise((resolve, reject) => {
+            feederResolve = resolve;
+            feederReject = reject;
+        })
+
+        const handle01 = await getVisitorHandle(ourChannelName, visitorName)
+        const socket01 = await new __.ChannelSocket(handle01, createMessageHandler(visitorName), await aesTestProtocol())
+
+        console.log(socket01)
+
+        // ToDo: ... add actual feed/consume test here ...
+
+        console.log(`[test 03] [${visitorName}] Feeder done ... closing channel, waiting a second`)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        console.log(`[test 03] [${visitorName}]  ... will try to close.`)
+        await socket01
+            .close()
+            .catch((e) => {
+                console.log(`[test 03] [${visitorName}] Error, presumably test is over:\n`, e)
+            })
+        console.log(`[test 03] [${visitorName}] ... channel closed, feeder all wrapped.`)
+
+    }
+
+    const WAIT_TIME = 30 // in seconds
+
+    // connects to socket, then waits 2 minutes, then closes;
+    // implicitly this tests the online/offline tracking
+    async function test04(channelName, visitorName) {
+        try {
+            const newChannel = await getVisitorHandle(channelName, visitorName)
+
+            let feederResolve, feederReject;
+            const feederPromise = new Promise((resolve, reject) => {
+                feederResolve = resolve;
+                feederReject = reject;
+            })
+
+            const handle01 = await getVisitorHandle(ourChannelName, visitorName)
+            const socket01 = await new __.ChannelSocket(handle01, nullMessageHandler, await aesTestProtocol())
+
+            console.log("[test 04] [", visitorName, "] ... channel socket created ... tracking online/offline ...")
+
+            // send a 'setup' message
+            await socket01.send("Hello, I'm " + visitorName)
+
+            // now we simply wait seconds, then close the channel
+            const waitTime = WAIT_TIME
+            console.log(`[test 04] [${visitorName}] Set up done ... waiting ${waitTime} seconds.`)
+
+            // // set up an interval timer that prints a countdown (roughtly) every second
+            // for (let i = waitTime; i > 0; i--) {
+            //     await new Promise(resolve => setTimeout(resolve, 1000))
+            //     console.log(`[test 04] [${visitorName}] ... ${i} ...`) // prints a countdown
+            // }
+
+            await new Promise(resolve => setTimeout(resolve, waitTime * 1000))
+
+            console.log(`[test 04] [${visitorName}]  ... all done ... will try to close.`)
+            await socket01.close()
+            console.log(`[test 04] [${visitorName}] ... channel closed, feeder all wrapped.`)
+        } catch (e) {
+            console.error("Error in test04:", e)
+        }
+    }
+    // add function to button 'test04'
+    document.getElementById('test04').addEventListener('click', () => {
+        test04(ourChannelName, 'visitor04')
+    })
+
+
+    // sends a message
+    async function test05(channelName, visitorName) {
+        try {
+            const newChannel = await getVisitorHandle(channelName, visitorName)
+
+            const handle01 = await getVisitorHandle(ourChannelName, visitorName)
+            const socket01 = await new __.ChannelSocket(handle01, createMessageHandler(visitorName), await aesTestProtocol())
+
+            console.log(`[test 05] [${visitorName}] We are connected`)
+
+            // sends a message every 4 seconds
+            const interval = setInterval(async () => {
+                console.log("[test 05] We will send a message to the channel....")
+                await socket01
+                    .send("Hello, I'm " + visitorName + " and the time now is " + new Date().toISOString())
+                    .catch((e) => {
+                        console.log(`[test 05] [${visitorName}] Error sending message .. assuming test is done and channel closed\n`, e)
+                        // any errors and we quit
+                        clearInterval(interval)
+                    })
+            }, 4000)
+
+            const waitTime = WAIT_TIME
+            await new Promise(resolve => setTimeout(resolve, waitTime * 1000))
+            console.log(`[test 05] [${visitorName}]  ... all done ... will try to close.`)
+            await socket01.close()
+            console.log(`[test 05] [${visitorName}] ... channel closed, feeder all wrapped.`)
+        } catch (e) {
+            console.error("Error in test05:", e)
+        }
+
+    }
+
+    // add function to button 'test05'
+    document.getElementById('test05').addEventListener('click', () => {
+        test05(ourChannelName, 'visitor05')
+    })
+
+    // this matches 08.04.stream.test.ts
+    import { channel } from './384.esm.js'
+    async function test06() {
+
+        // const ourChannelName = 'test_08_04_run01'
+        // const ownerHandle = await getOwnerHandle(ourChannelName, true)
+        // from 08.04.stream.test.ts
+        const ownerHandle =
+            configServerType === "staging"
+                ? {
+                    "channelId": "QIn7NciXa3LTxjNQLjDGGFg61WbBtGX7EDUW5bnVnxG",
+                    "userPrivateKey": "Xj33GPB1vubXCZM4bzSxMcvdUbbjMx8dYu6sf62u5pokiDUwby8EkJeRqB7zkNiQd24Bzzs1E1STvsuzNI7Gn8WXsHblZ4R065G5epwOs9mnxkOq7hZco4jLP8elDA3mjs6VP",
+                    "channelServer": "https://c3.384.dev"
+                }
+                : {
+                    "channelId": "mpdWWcOTqhN6kndwgpayikbdIA2Mbnwoda8UUmg3BQD",
+                    "userPrivateKey": "Xj33hJU2z694hBxTXPKlwvsuXpETW21LScQj6ofu6RZiSir7IUfBwt7Gld0iYcIRuLf60XlYhz5W5iQXnYMutdou1NApxHFI3GN87R04JaoiQVERyrXYCCQxdsCvSqekYjFB3",
+                    "channelServer": "http://localhost:3845"
+                }
+
+        console.log(SEP, "==== Starting test06 ==== " + configServerType.toUpperCase() + " ====", SEP)
+        // console.log(channel)
+
+
+        const protocol = await aesTestProtocol()
+        const ownerChannel = await new __.Channel(ownerHandle, protocol).ready
+
+        console.log("[08.04] channel ready, channelId is", ownerChannel.channelId)
+
+        const testChannel = ownerChannel
+        const testChannelHandle = ownerHandle
+        const testChannelProtocol = protocol
+
+        const channelStream = await (new channel.stream(testChannelHandle, testChannelProtocol)).ready
+        const stream = channelStream.start({ prefix: "0" });
+
+        console.log(SEP, "[08.04] [index.html] hopefully we can now get messages off the stream ...", SEP)
+        let count = 0
+        for await (const message of stream) {
+            console.log(`[08.04] [index.html] message ${count.toString().padStart(3, "000")} received: '${message.body}'`);
+            count++
+            // // pacing, wait and block 0.5 seconds after first message
+            // if (count === 1) await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        console.log(SEP)
+
+    }
+
+
+    async function test99(_storageToken) {
+        console.log("==== Starting test02")
+        console.log("This bootstraps from a token; if token has been consumed it'll fail")
+        const newChannel = await SnackabraObject.create(_storageToken)
+        console.log("Created New Channel, this is the OWNER handle:\n", newChannel)
+    }
+
+
+
+    function printKey(key) {
+        console.log("==================== SB384 Key ====================")
+        console.log("key.private:", key.private)
+        console.log("key.hash:", key.hash)
+        console.log("key.userId:", key.userId)
+        console.log("key.userPublicKey:", key.userPublicKey)
+        console.log("key.jwkPublic:", key.jwkPublic)
+        if (key.private) {
+            console.log("==== Key is private so we also have this info:")
+            console.log("key.ownerChannelId:", key.ownerChannelId)
+            console.log("key.userPrivateKey:", key.userPrivateKey)
+            console.log("key.jwkPrivate:", key.jwkPrivate)
+        } else {
+            console.log("==== Key is public so that's all we have.")
+        }
+    }
+
+    export function printChannelKeys(key) {
+        console.log("==================== SBChannelKeys ====================")
+        console.log("key.owner:", key.owner)
+        console.log("key.channelData:", key.channelData)
+        console.log("key.channelId:", key.channelId)
+        console.log("key.encryptionKey:", key.encryptionKey)
+        console.log("key.channelServer:", key.channelServer ? key.channelServer : "<none specified>")
+        console.log("==== Here is the visitor/owner key for these channelKeys:")
+        printKey(key)
+    }
+
+    const SEPx = '-'.repeat(80) + '\n', SEP = '\n' + SEPx
+
+    const getBudgetChannel = async () => await (new __.Channel(configuration.walletHandle)).ready
+    const createChannel = async () => await SnackabraObject.create(await getBudgetChannel())
+
+    // returns an owner key matching name; creates if needed
+    const getOwnerKey = async (channelName) => {
+        let owner = localStorage.getItem(configuration.channelServer + channelName)
+        if (!owner) {
+            owner = (await new __.SB384().ready).userPrivateKey
+            localStorage.setItem(configuration.channelServer + channelName, owner)
+        }
+        return owner
+    }
+
+    // returns channel handle matching owner key - registers/authorizes it if needed
+    async function getMainChannel(ownerKey) {
+        const mainChannel = await (new __.Channel(ownerKey)).ready
+        mainChannel.channelServer = configuration.channelServer
+        try {
+            const keys = await mainChannel.getChannelKeys()
+        } catch (e) {
+            if (e.message.indexOf('No such channel or shard') > -1) {
+                // make sure there's a channel matching the key
+                console.warn(`Channel, creating ... `)
+                await (await getBudgetChannel()).budd({ targetChannel: mainChannel.handle })
+            } else {
+                console.error("Error getting channel keys:", e)
+            }
+        }
+        return mainChannel
+    }
+
+    // owner keys are named after channel
+    const getOwnerHandle = async (channelName) => (await getMainChannel(await getOwnerKey(channelName))).handle
+
+    // visitor keys are named after channel + visitor name
+    async function getVisitorHandle(channelName, visitorName) {
+        const ownerHandle = await getOwnerHandle(channelName)
+        const visitorHandleName = channelName + '_' + visitorName
+        let visitorKey = localStorage.getItem(visitorHandleName)
+        if (!visitorKey) {
+            visitorKey = (await new __.SB384().ready).userPrivateKey
+            localStorage.setItem(visitorHandleName, visitorKey)
+        }
+        return ({
+            ...ownerHandle,
+            userPrivateKey: visitorKey
+        })
+    }
+
+
+    const ChannelApi = __.ChannelApi
+    const SB384 = __.SB384
+    const Protocol_ECDH = __.Protocol_ECDH
+    const ChannelStream = __.ChannelStream
+    const ChannelHandle = __.ChannelHandle
+    const SBUserId = __.SBUserId
+
+    const ownerHandle = await getOwnerHandle(ourChannelName, true)
+    const aliceHandle = await getVisitorHandle(ourChannelName, "Alice")
+    const bobHandle = await getVisitorHandle(ourChannelName, "Bob")
+
+    // first, 384 objects that only the respective parties would have
+    const alice384private = await new SB384(aliceHandle.userPrivateKey).ready
+    const bob384private = await new SB384(bobHandle.userPrivateKey).ready
+    const owner384private = await new SB384(ownerHandle.userPrivateKey).ready
+
+    const alicePublicKey = alice384private.userPublicKey
+    const bobPublicKey = bob384private.userPublicKey
+    const ownerPublicKey = owner384private.userPublicKey
+
+    // sanity check. everybody's channelData.ownerPublicKey should be the same
+    if ((ownerHandle.channelData?.ownerPublicKey !== ownerPublicKey)
+        || (aliceHandle.channelData?.ownerPublicKey !== ownerPublicKey)
+        || (bobHandle.channelData?.ownerPublicKey !== ownerPublicKey))
+        throw new Error("Owner public key mismatch")
+
+    // these are the 384 objects that everybody would have
+    const alice384public = await new SB384(alicePublicKey).ready
+    const bob384public = await new SB384(bobPublicKey).ready
+    const owner384public = await new SB384(ownerPublicKey).ready
+
+    // these are the short form user identities. Channels can convert these to
+    // full public keys as needed. these IDs are what you would use in directed
+    // (routed) messages, or internally for tracking. they're unique for any user.
+    const aliceID = alice384public.userId
+    const bobID = bob384public.userId
+    const ownerID = owner384public.userId
+
+    // we pick the ECDH protocol, which is essentially a 'whisper' protocol;
+    // note that this is also default, so, technically we can omit it
+    const protocol = new Protocol_ECDH()
+
+    const prefix = "[05.02] [whisper] "
+
+    console.log(SEP)
+    console.log(prefix + "       Channel ID:", ownerHandle.channelId)
+    console.log(prefix + " Owner ID, public key:", ownerID, ownerPublicKey.slice(4))
+    console.log(prefix + " Alice ID, public key:", aliceID, alicePublicKey.slice(4))
+    console.log(prefix + "   Bob ID, public key:", bobID, bobPublicKey.slice(4))
+    console.log(SEP)
+
+    async function privateReader(handle, name) {
+        const c = await new ChannelStream(handle, protocol).ready
+        console.log(prefix + `Setting up stream for user '${name}':`, c)
+        c.send("Hello, this is " + name)
+        for await (const message of c.start({ prefix: '0' })) {
+            console.log(`${name} received PRIVATE message: "${message.body}"`)
+        }
+    }
+
+    async function privateSender(senderHandle, senderName, recipientID, recipientName) {
+        let keepRunning = true
+        const s = await new ChannelStream(senderHandle, protocol).ready
+        const timeout = (ms) => new Promise(resolve => setTimeout(async () => {
+            keepRunning = false;  // Set the flag to false after the timeout
+            console.log("****** timing out ******")
+            await s.close()
+            resolve(void 0);
+        }, ms));
+        Promise.race([
+            (async () => {
+                let i = 0;
+                while (true) {
+                    const msg = `Hello ${recipientName}! This is ${senderName}! ` + new Date().toISOString() + ` from Deno ${Date.now()}` + ` #${i++}`;
+                    console.log("Sending to ALICE:", msg);
+                    s.send(msg, { sendTo: recipientID, ttl: 8 });
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    if (!keepRunning) break;
+                }
+            })(),
+            (async () => {
+                for await (const message of s.start({ prefix: '0', live: true })) {
+                    console.log(`${senderName} (sender) received message: "${message.body}"`);
+                    if (!keepRunning) break;
+                }
+            })(),
+            timeout(5 * 60 * 1000) // in a stand alone unit test, this triggers a wrapup, but in browser we're usually debugging
+        ]);
+    }
+
+    async function listen(s, listener) {
+        for await (const message of s.start({ prefix: '0', live: true })) {
+            console.log(`[${listener}] Received message: "${message.body}"`);
+        }
+    }
+
+    async function privateSendSingle(senderHandle, senderName, recipientID, recipientName) {
+        const s = await new ChannelStream(senderHandle, protocol).ready
+        listen(s, senderName)
+        // wait a bit
+        await new Promise(resolve => setTimeout(resolve, 500))
+        const msg = `Hello ${recipientName}! This is SINGLETON from ${senderName}! ` + new Date().toISOString() + ` from Deno ${Date.now()}`;
+        console.log("Sending SINGLETON to ALICE:", msg);
+        s.send(msg, { sendTo: recipientID, ttl: 8 });
+    }
+
+    async function test07() {
+        console.log(SEP, "Owner handle:\n", ownerHandle)
+        console.log(SEP, "Alice handle:\n", aliceHandle)
+        console.log(SEP, "Bob handle:\n", bobHandle)
+
+        // these are all 'spun up', they don't terminate
+
+        privateReader(aliceHandle, "Alice");
+        privateReader(bobHandle, "Bob");
+
+        // privateSender(ownerHandle, "Owner", aliceID, "Alice");
+
+        // we wait a bit before sending anythin
+        console.log("Waiting a bit before sending ....")
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log("... sending ....")
+        privateSendSingle(ownerHandle, "Owner", aliceID, "Alice");
+
+    }
+
+    test07();
+
+</script>
+
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" class="hide">
+    <symbol id="logo" viewBox="0 0 460 460">
+        <style type="text/css">
+            .st0 {
+                fill: #FF5C42;
+                fill-rule: evenodd;
+            }
+        </style>
+        <path id="Three" class="st0" d="M82.5,127.7C57.3,160.5-35.1,235.2,47.7,244.1c104.6,47-1.5,75.1-47.7,72.9c1,22.1,2.1,44,3,66.4
+        	c120.7,12.4,193.1-148.9,66.5-184.7c19.4-26.8,47.7-46.1,62.7-76.9c-3.1-17.2,1.8-46.7-5.8-58.1c-40,0-79.8,0-119.8,0
+        	C-10,147.6,18.1,125,82.5,127.7z" />
+        <path id="Eight" class="st0" d="M254.7,211.9c156-208.6-227-189.2-70.6,9.8C16.3,439.4,428.5,419.8,254.7,211.9z M229.6,191.2
+        	c-23.4-11.9-57.4-66.6-16-78.9C249.5,100.4,257.7,167,229.6,191.2z M221,328.7c-24.3,2.7-39.2-35.1-25.4-65.5
+        	C214.4,206.4,288.8,330.5,221,328.7z" />
+        <path id="Four" class="st0"
+            d="M376.6,65.9C279,30.1,312.8,264,307.9,323.2c158.2-18,27,58,125,53c10-2,1.8-39.4,4.3-52.8
+        	c33.2,7.7,15.9-41.6,22.6-62.6c0,0-22.8,0-22.8,0v-105c-66.2,2.2-38.8,21-44,101.1C294.6,292.1,381.4,122.9,376.6,65.9z" />
+</svg>
+
+</html>
