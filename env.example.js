@@ -4,7 +4,9 @@
 // everything is consumed through "config.js"
 
 // 'local' | 'dev' | 'stage' | 'prod'
-const serverType = 'local';
+// Override at runtime with OS384_ENV env var (e.g. `OS384_ENV=local deno task test:fast`
+// or `make test`). The Makefile sets this automatically — no need to edit this line.
+const serverType = (typeof Deno !== 'undefined' && Deno.env.get('OS384_ENV')) || 'local';
 
 // the rest you should only need to change upon setup
 
