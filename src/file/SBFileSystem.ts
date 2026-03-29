@@ -23,7 +23,7 @@ import { MessageType } from '../channel/MessageType';
 
 // import { preview File } from '../browser/preview';
 
-var DBG0 = true;
+var DBG0 = false;
 // var DBG2 = false;
 
 import { SBFS, FileSetMeta, SEP } from './SBFS';

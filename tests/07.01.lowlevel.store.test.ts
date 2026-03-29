@@ -158,7 +158,7 @@ Deno.test("[fast] [storage] minimalist storage test 07.01", async () => {
     console.log('\n===================== 07.01 START storage test =====================')
     SB = new ChannelApi(configuration.channelServer, configuration.DBG)
     await test01()
-    await ChannelApi.closeAll
+    await ChannelApi.closeAll()
     console.log('\n===================== 07.01 END storage test   =====================')
 });
 
@@ -166,5 +166,5 @@ if (import.meta.main) { // tells Deno not to run this in the test suite
     // called if used from command line
     SB = new ChannelApi(configuration.channelServer, configuration.DBG)
     await test01()
-    await ChannelApi.closeAll
+    await ChannelApi.closeAll()
 }

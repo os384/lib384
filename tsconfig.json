@@ -3,6 +3,7 @@
     "target": "es2022",
     "module": "esnext",
     "moduleResolution": "bundler",
+    "baseUrl": ".",
     "lib": ["esnext", "dom"],
 
     "strict": true,
@@ -30,7 +31,7 @@
     "experimentalDecorators": true,
     "allowJs": true,
 
-    "paths": { "lib384": ["./dist/384.esm"] }
+    // "paths": { "lib384": ["./dist/384.esm"] }  // keeping for reference, may not be needed
   },
   "include": ["src/**/*.ts"],
   "exclude": ["build", "dist", "src/service-worker", "tests", "demos"]

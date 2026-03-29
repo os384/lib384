@@ -58,7 +58,7 @@ async function simpleCreateChannel(tokenHash: string) {
 // we then consume the token to create a new channel
 async function runTheTest() {
     // 2025.01.04 - update, we use a static hash value, that way dev/local docker setups work in a straightforward way
-    let savedTokenHash = "LM2rIyPYQpoWvAtneSwF9oWQCHfNxQTo42z4LcbnDU0iEt6"
+    let savedTokenHash = "LM2r39oAn1F8aMsicKTInXZb5L81JihNghBfJguAPVWZq5k"
 
     try {
         // first we try to fetch from "http://localhost:3849/refresh", if that works, then we're good
@@ -119,7 +119,7 @@ async function runTheTest() {
 
 // todo. this will occasionally trigger a stdout cleanup error. we can punt on fixing that.
 Deno.test({
-    name: "[broken] [token] refresh token test]",
+    name: "[token] refresh token test",
     async fn() {
         console.log('\n===================== 04.01 START channel test =====================')
         SB = new ChannelApi(configuration.channelServer, configuration.DBG)

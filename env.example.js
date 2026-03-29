@@ -4,9 +4,7 @@
 // everything is consumed through "config.js"
 
 // 'local' | 'dev' | 'stage' | 'prod'
-// Override at runtime with OS384_ENV env var (e.g. `OS384_ENV=local deno task test:fast`
-// or `make test`). The Makefile sets this automatically — no need to edit this line.
-const serverType = (typeof Deno !== 'undefined' && Deno.env.get('OS384_ENV')) || 'local';
+const serverType = 'local';
 
 // the rest you should only need to change upon setup
 
@@ -29,7 +27,8 @@ const serverType = (typeof Deno !== 'undefined' && Deno.env.get('OS384_ENV')) ||
 
     const configServerType = serverType
 
-    // use ``cli/refresh.token.ts`` to generate this
+    // run the 04.01 regression test (OS384_ENV=local deno task test:04.01) to generate
+    // this and the budget key; values are saved to .local.data.json
     const localWalletHandle = {
         "channelId": "...",
         "userPrivateKey": "Xj33...",
@@ -41,7 +40,7 @@ const serverType = (typeof Deno !== 'undefined' && Deno.env.get('OS384_ENV')) ||
     }
     const localBudgetKey = "Xj32..." // this is the userPrivateKey from above
 
-    // again, use ``cli/refresh.token.ts`` to generate
+    // budd from the budget channel to create a ledger channel; see docs/dev/local-stack
     const localLedgerHandle = {
         "channelId": "...",
         "userPrivateKey": "Xj33...",

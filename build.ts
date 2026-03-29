@@ -1,14 +1,27 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write --allow-net --allow-env --allow-run
 
 // Build script for lib384
-// Replaces the old yarn/npm build pipeline.
 // Uses esbuild via Deno's npm: specifier (requires Deno 2.x).
 //
 // Usage:
 //   deno task build              # production build
-//   deno task build --debug      # debug build (DBG=true, sourcemaps)
+//   deno task build --debug      # debug build (DBG=true, linked sourcemaps on main bundles)
 //   deno task build --debug2     # verbose debug build (DBG=true, DBG2=true)
-//   deno task dev                # production build + watch mode
+//   deno task dev                # watch mode (skips dts-bundle-generator)
+//
+// Every build (production and debug) always produces:
+//   dist/384.esm.js          ESM bundle
+//   dist/384.iife.js         IIFE bundle (window.__)
+//   dist/384.sw.js           Service worker bundle
+//   dist/384.esm.debug.js    ESM with inline sourcemaps, DBG=true (for lib384 development)
+//   dist/384.esm.d.ts        Bundled type declarations with full JSDoc
+//                              (dts-bundle-generator is required because tsc --declaration
+//                               emits per-file .d.ts and has never supported single-file
+//                               rollup — see https://github.com/microsoft/TypeScript/issues/4433)
+//
+// Debug builds additionally produce linked sourcemaps:
+//   dist/384.esm.js.map
+//   dist/384.iife.js.map
 
 import * as esbuild from "npm:esbuild@0.24.2";
 
@@ -76,29 +89,79 @@ const swConfig: esbuild.BuildOptions = {
   plugins: [srcAliasPlugin],
 };
 
+// Always-present debug variant: ESM with inline sourcemaps, DBG=true, unminified.
+// Inline sourcemaps are self-contained — the map survives regardless of how or where
+// the file is served, making devtools source-stepping reliable during lib384 development
+// (local demos, browser breakpoints, etc.).  Contrast with the linked .js.map files
+// on the main bundles, which depend on the map being served at the right relative URL.
+const esmDebugConfig: esbuild.BuildOptions = {
+  entryPoints: ["src/index.ts"],
+  bundle: true,
+  target: "es2022",
+  define: { "DBG": "true", "DBG2": DEBUG2 ? "true" : "false" },
+  legalComments: "inline",
+  sourcemap: "inline",
+  sourcesContent: true,
+  minify: false,
+  format: "esm",
+  outfile: "dist/384.esm.debug.js",
+  plugins: [srcAliasPlugin],
+};
+
 // Ensure dist/ exists
 await Deno.mkdir("dist", { recursive: true });
 
 if (WATCH) {
-  console.log("Watching for changes...");
-  const [esmCtx, iifeCtx, swCtx] = await Promise.all([
+  console.log(`Watching for changes (${DEBUG ? "debug" : "production"})...`);
+  console.log("  Note: dts-bundle-generator is skipped in watch mode.");
+  const [esmCtx, iifeCtx, swCtx, esmDebugCtx] = await Promise.all([
     esbuild.context(esmConfig),
     esbuild.context(iifeConfig),
     esbuild.context(swConfig),
+    esbuild.context(esmDebugConfig),
   ]);
-  await Promise.all([esmCtx.watch(), iifeCtx.watch(), swCtx.watch()]);
+  await Promise.all([
+    esmCtx.watch(),
+    iifeCtx.watch(),
+    swCtx.watch(),
+    esmDebugCtx.watch(),
+  ]);
 } else {
   console.log(`Building lib384 (${DEBUG ? "debug" : "production"})...`);
   await Promise.all([
     esbuild.build(esmConfig),
     esbuild.build(iifeConfig),
     esbuild.build(swConfig),
+    esbuild.build(esmDebugConfig),
   ]);
   await esbuild.stop();
-  console.log("Build complete -> dist/");
   console.log("  384.esm.js       ESM bundle");
   console.log("  384.iife.js      IIFE bundle (window.__)");
   console.log("  384.sw.js        Service worker bundle");
-  console.log("");
-  console.log("To generate types: deno run -A npm:dts-bundle-generator -o dist/384.esm.d.ts src/index.ts");
+  console.log("  384.esm.debug.js ESM + inline sourcemaps, DBG=true");
+  if (DEBUG) {
+    console.log("  384.esm.js.map   (debug)");
+    console.log("  384.iife.js.map  (debug)");
+  }
+
+  // Generate bundled type declarations.
+  // dts-bundle-generator is needed because tsc --declaration emits per-file .d.ts
+  // and does not support single-file rollup (TS#4433, open since 2015).
+  console.log("\nGenerating types...");
+  const dtsResult = await new Deno.Command("deno", {
+    // Pinned to dts-bundle-generator@8.1.2 + typescript@5.4.2 (see deno.json imports) —
+    // matching the last known-good baseline from lib-proto-03. TypeScript 5.7+ introduced
+    // esnext.arraybuffer types that break structural checks on valid existing code.
+    // Revisit these pins consciously when upgrading the TypeScript baseline.
+    args: ["run", "-A", "npm:dts-bundle-generator@8.1.2", "-o", "dist/384.esm.d.ts", "src/index.ts"],
+  }).output();
+  if (dtsResult.success) {
+    console.log("  384.esm.d.ts     Bundled type declarations");
+  } else {
+    console.error("  dts-bundle-generator failed:");
+    console.error(new TextDecoder().decode(dtsResult.stderr));
+    Deno.exit(1);
+  }
+
+  console.log("\nBuild complete -> dist/");
 }

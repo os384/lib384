@@ -1,25 +1,29 @@
 {
-  "name": "@os384/lib384",
+  "name": "@384/lib",
   "version": "0.3.0-rc3",
   "exports": "./src/index.ts",
 
   "tasks": {
-    "build":       "deno run -A build.ts",
-    "build:debug": "deno run -A build.ts --debug",
+    "build":        "deno run -A build.ts",
+    "build:debug":  "deno run -A build.ts --debug",
     "build:debug2": "deno run -A build.ts --debug2",
-    "dev":         "deno run -A build.ts --watch",
+    "dev":          "deno run -A build.ts --watch",
+    "dev:debug":    "deno run -A build.ts --watch --debug",
+    "dev:debug2":   "deno run -A build.ts --watch --debug2",
 
-    "test":         "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run tests/",
-    "test:fast":    "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[fast]' tests/",
-    "test:channel": "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[channel]' tests/",
-    "test:slow":    "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[slow]' tests/",
+    "test":          "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run tests/",
+    "test:fast":     "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[fast]' tests/",
+    "test:channel":  "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[channel]' tests/",
+    "test:slow":     "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[slow]' tests/",
+    "test:dbg0":     "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[DBG0]' tests/",
     "test:coverage": "deno test --coverage=./tests/coverage --no-check --allow-read --allow-write --allow-net --allow-env --allow-run tests/ && deno coverage --exclude='deno' --exclude='env.js' --exclude='config.js' --exclude='384.esm.js' --lcov tests/coverage/ > tests/coverage/lcov.info",
 
     "deploy":       "deno run -A tools/deploy.ts",
-    "clean":        "rm -rf dist/*"
+    "clean":        "rm -rf dist/* build/ tests/coverage/"
   },
 
   "imports": {
-    "@std/assert": "./tests/_std_assert_shim.ts"
+    "@std/assert": "./tests/_std_assert_shim.ts",
+    "typescript":  "npm:typescript@5.4.2"
   }
 }

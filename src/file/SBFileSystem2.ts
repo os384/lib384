@@ -15,7 +15,7 @@ import { MessageType } from '../channel/MessageType';
 
 import { _check_ObjectHandle } from '../storage/ObjectHandle';
 
-var DBG0 = true;
+var DBG0 = false;
 // var DBG2 = false;
 
 import { SBFS, FileSetMeta } from './SBFS';
