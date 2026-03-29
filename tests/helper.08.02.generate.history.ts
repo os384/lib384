@@ -1,24 +1,22 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write --allow-net --allow-env
 
-// current channel server 'small branch' settings:
-// const MSG_HISTORY_BRANCHING = TEST_WITH_SMALL_BRANCHING ? 3 : DeepHistory.MESSAGE_HISTORY_BRANCH_FACTOR
-// const MSG_HISTORY_SET_SIZE = TEST_WITH_SMALL_BRANCHING ? 5 : DeepHistory.MAX_MESSAGE_SET_SIZE
-
-// history test helper - send a specific number of messages, depending on what you're testing
-
-// const COUNT = 5 * (3 * 3 * 3 + 1)
-// const COUNT = (5 * (3 * 3 * 3 * 3)) - (5 * (3 * 3 * 3 + 1))
-
-// perfect levels are:
-// 5 * 3 = 15
-// 5 * 3 * 3 = 45
-// 5 * 3 * 3 * 3 = 135
-// 5 * 3 * 3 * 3 * 3 = 405
-// 5 * 3 * 3 * 3 * 3 * 3 = 1215
-// 5 * 3 * 3 * 3 * 3 * 3 * 3 = 3645
-
-// const COUNT = 512 / 4
-
+/*
+ * Copyright (C) 2019-2021 Magnusson Institute
+ * Copyright (C) 2022-2026 384, Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 const COUNT = 7
 
 // const COUNT = 5

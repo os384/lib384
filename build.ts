@@ -1,28 +1,22 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write --allow-net --allow-env --allow-run
 
-// Build script for lib384
-// Uses esbuild via Deno's npm: specifier (requires Deno 2.x).
-//
-// Usage:
-//   deno task build              # production build
-//   deno task build --debug      # debug build (DBG=true, linked sourcemaps on main bundles)
-//   deno task build --debug2     # verbose debug build (DBG=true, DBG2=true)
-//   deno task dev                # watch mode (skips dts-bundle-generator)
-//
-// Every build (production and debug) always produces:
-//   dist/384.esm.js          ESM bundle
-//   dist/384.iife.js         IIFE bundle (window.__)
-//   dist/384.sw.js           Service worker bundle
-//   dist/384.esm.debug.js    ESM with inline sourcemaps, DBG=true (for lib384 development)
-//   dist/384.esm.d.ts        Bundled type declarations with full JSDoc
-//                              (dts-bundle-generator is required because tsc --declaration
-//                               emits per-file .d.ts and has never supported single-file
-//                               rollup — see https://github.com/microsoft/TypeScript/issues/4433)
-//
-// Debug builds additionally produce linked sourcemaps:
-//   dist/384.esm.js.map
-//   dist/384.iife.js.map
-
+/*
+ * Copyright (C) 2019-2021 Magnusson Institute
+ * Copyright (C) 2022-2026 384, Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 import * as esbuild from "npm:esbuild@0.24.2";
 
 const args = new Set(Deno.args);

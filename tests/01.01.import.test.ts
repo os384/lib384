@@ -1,15 +1,17 @@
-
-// actually we don't run this test anymore: our unit tests work directly against
-// typescript and not the assembled 384 library. for the latter case, we run
-// in-browser test suites.
-
-
-// #!/usr/bin/env -S deno run --allow-read
-
-// import * as __ from "../dist/384.esm.js"
-
-// Deno.test("[fast] Test module (top level static) import of library", async () => {
-//     console.log('\n===================== 01.01 START import.test =====================')
-//     console.log("This should show version:", __.version);
-//     console.log('===================== 01.01 END import.test =====================')
-// });
+/*
+ * Copyright (C) 2019-2021 Magnusson Institute
+ * Copyright (C) 2022-2026 384, Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */

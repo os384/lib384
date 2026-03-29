@@ -1,8 +1,20 @@
-// (c) 2023 384 (tm)
-
-// thank you Thomas Lochmatter, thomas.lochmatter@viereck.ch, for jpeg ref code
-
-// takes a JPEG image and extracts and returns key meta data
+/*
+ * Copyright (C) 2019-2021 Magnusson Institute
+ * Copyright (C) 2022-2026 384, Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 export function readJpegHeader(bytes: Uint8Array) {	
     console.log("==== loaded SBImageHelper lib version 0.0.10 ====");
     // Check for valid JPEG header (null terminated JFIF)

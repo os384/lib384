@@ -1,14 +1,20 @@
-// (c) 2023-2024 384 (tm)
-
-// parsing properly into TLD and TLD+1 is a bit tricky, generally sites use
-// libraries (we want to avoid that), or the full list from github at:
-// https://github.com/publicsuffix/list/blob/master/public_suffix_list.dat which
-// is 15K entries.
-
-// below we use a small list of the most common TLDs, and then a list of the
-// most common SLDs for each of those TLDs.  This is not perfect, but should
-// work for most cases. Let us know what we missed.
-
+/*
+ * Copyright (C) 2019-2021 Magnusson Institute
+ * Copyright (C) 2022-2026 384, Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 const singleTLDs = new Set([
     'localhost',
     'io', 'dev', 'app', 'land', 'ac', 'lk', 'cc',

@@ -1,10 +1,22 @@
 #!/usr/bin/env -S deno run --allow-net --allow-read --allow-write --allow-env
 
-// user-to-user messaging where one user is always the Owner is sometimes referred
-// to as 'whisper' messaging. Whispers can be implemented in a number of ways,
-// (which is why it doesn't have a separate api etc), the most straight forward
-// is to simply use ECDH protocol.
-
+/*
+ * Copyright (C) 2019-2021 Magnusson Institute
+ * Copyright (C) 2022-2026 384, Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 import '../env.js'
 import '../config.js'
 

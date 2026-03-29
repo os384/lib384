@@ -1,18 +1,22 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write --allow-net --allow-env
 
-// Deploy lib384 build artifacts to os384 channel pages.
-//
-// Reads channel keys from environment variables:
-//   OS384_LIB384_ESM   - channel key for 384.esm.js
-//   OS384_LIB384_IIFE  - channel key for 384.iife.js
-//   OS384_LIB384_TYPES - channel key for 384.esm.d.ts
-//
-// Or pass --key <key> --file <file> to deploy a single artifact.
-//
-// Usage:
-//   deno task deploy
-//   deno run -A tools/deploy.ts --file dist/384.esm.js --key $OS384_LIB384_ESM
-
+/*
+ * Copyright (C) 2019-2021 Magnusson Institute
+ * Copyright (C) 2022-2026 384, Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 import { parseArgs } from "jsr:@std/cli/parse-args";
 import { publish } from "./publish.page.ts";
 
