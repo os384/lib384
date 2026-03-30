@@ -1,5 +1,4 @@
 # Build output
-dist/
 build/
 
 # Local environment / credentials — copy env.example.js to env.js and fill in
@@ -21,5 +20,6 @@ deno.lock
 # OS / editor
 .DS_Store
 *.swp
+
 .vscode/settings.json
 .local.data.json

@@ -15,7 +15,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-export const version = '20250328.0' // this is top lev (lib/os) version
+
+// export const version = '20250328.0' // this is top lev (lib/os) version
+export const version = '20260330.0' // wow it's been exactly a year since the last release ...
 
 export type {
     ChannelId, SBUserId, SBUserPrivateKey, SBUserPublicKey,
