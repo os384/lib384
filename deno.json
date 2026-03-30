@@ -1,6 +1,6 @@
 {
   "name": "@384/lib",
-  "version": "20260330.0",
+  "version": "20260330.1",
   "exports": "./src/index.ts",
 
   "tasks": {
@@ -24,6 +24,40 @@
 
   "imports": {
     "@std/assert": "./tests/_std_assert_shim.ts",
-    "typescript":  "npm:typescript@5.4.2"
+    "typescript":  "npm:typescript@5.4.2",
+
+    "src/channel/Channel":        "./src/channel/Channel.ts",
+    "src/channel/ChannelApi":     "./src/channel/ChannelApi.ts",
+    "src/channel/ChannelHandle":  "./src/channel/ChannelHandle.ts",
+    "src/channel/ChannelMessage": "./src/channel/ChannelMessage.ts",
+    "src/channel/ChannelSocket":  "./src/channel/ChannelSocket.ts",
+    "src/channel/Message":        "./src/channel/Message.ts",
+    "src/channel/Protocol":       "./src/channel/Protocol.ts",
+    "src/common":                 "./src/common.ts",
+    "src/file/SBFile":            "./src/file/SBFile.ts",
+    "src/file/SBFileSystem":      "./src/file/SBFileSystem.ts",
+    "src/sbCrypto/SBCrypto":      "./src/sbCrypto/SBCrypto.ts",
+    "src/sbCrypto/core":          "./src/sbCrypto/core.ts",
+    "src/service-worker/db":      "./src/service-worker/db.ts",
+    "src/storage/MessageHistory": "./src/storage/MessageHistory.ts",
+    "src/storage/ObjectHandle":   "./src/storage/ObjectHandle.ts",
+    "src/storage/StorageApi":     "./src/storage/StorageApi.ts",
+    "src/storage/StorageToken":   "./src/storage/StorageToken.ts",
+    "src/storage/core":           "./src/storage/core.ts",
+    "src/types":                  "./src/types.ts",
+    "src/utils/AsyncSequence":    "./src/utils/AsyncSequence.ts",
+    "src/utils/MessageQueue":     "./src/utils/MessageQueue.ts",
+    "src/utils/SBEventTarget":    "./src/utils/SBEventTarget.ts",
+    "src/utils/b32mi":            "./src/utils/b32mi.ts",
+    "src/utils/b62":              "./src/utils/b62.ts",
+    "src/utils/b64":              "./src/utils/b64.ts",
+    "src/utils/buffers":          "./src/utils/buffers.ts",
+    "src/utils/error":            "./src/utils/error.ts",
+    "src/utils/fetch":            "./src/utils/fetch.ts",
+    "src/utils/index":            "./src/utils/index.ts",
+    "src/utils/json":             "./src/utils/json.ts",
+    "src/utils/payloads":         "./src/utils/payloads.ts",
+    "src/utils/sep":              "./src/utils/sep.ts",
+    "src/utils/timeout":          "./src/utils/timeout.ts"
   }
 }
