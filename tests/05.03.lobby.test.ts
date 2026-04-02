@@ -19,7 +19,7 @@
  */
 const prefix = '05.03.test.run.001'
 
-import '../env.js'
+import '../keys.js'
 import '../config.js'
 const configuration = (globalThis as any).configuration
 

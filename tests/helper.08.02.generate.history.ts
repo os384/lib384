@@ -33,7 +33,7 @@ const COUNT = 7
 // const COUNT = 1215 - 430
 // const COUNT = 1215
 
-import '../env.js'
+import '../keys.js'
 import '../config.js'
 const configuration = (globalThis as any).configuration
 

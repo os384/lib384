@@ -3035,6 +3035,6 @@ export declare const serverApiCosts: {
 	CHANNEL_STORAGE_MULTIPLIER_TTL_ZERO: number;
 };
 export declare function isTextLikeMimeType(mimeType: string): boolean;
-export declare const version = "20260330.0";
+export declare const version = "20260330.2 (1.0.0.rc2.47)";
 
 export {};

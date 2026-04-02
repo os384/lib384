@@ -85,6 +85,14 @@ OS384_LIB384_ESM=<key> OS384_LIB384_IIFE=<key> OS384_LIB384_TYPES=<key> deno tas
 
 ## Licensing and Contributor Notice
 
-os384 is released under the GNU Affero General Public License v3 (AGPL-3.0-or-later),
-[LICENSE](LICENSE). All contributions are accepted under the same license.
-**A note on future licensing:** We are actively working on our long-term licensing and package structure strategy. This may include changes that affect how contributions to specific components are licensed. We are flagging this now, so it is not a surprise. If you have questions or concerns before contributing, please reach out at info@384.co.
+os384 is released under the GNU Affero General Public License v3
+(AGPL-3.0-or-later), [LICENSE](LICENSE). All contributions are
+accepted under the same license.
+
+**A note on future licensing:**
+
+We are actively working on our long-term licensing and package
+structure strategy. This may include changes that affect how
+contributions to specific components are licensed. We are flagging
+this now, so it is not a surprise. If you have questions or concerns
+before contributing, please reach out at info@384.co.

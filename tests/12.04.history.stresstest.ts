@@ -19,7 +19,7 @@
  */
 export const runName = "unit_test_12_04_run02"
 
-import '../env.js'
+import '../keys.js'
 import '../config.js'
 const configuration = (globalThis as any).configuration
 

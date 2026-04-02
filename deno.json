@@ -1,6 +1,6 @@
 {
   "name": "@384/lib",
-  "version": "20260330.1",
+  "version": "1.0.0.rc2.47",
   "exports": "./src/index.ts",
 
   "tasks": {

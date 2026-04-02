@@ -25,7 +25,7 @@ const SET_SIZE = 12
 // seconds interval between sets (if none wanted, set to 0)
 const interval = 0
 
-import '../env.js'
+import '../keys.js'
 import '../config.js'
 const configuration = (globalThis as any).configuration
 
