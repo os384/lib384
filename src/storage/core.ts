@@ -44,6 +44,55 @@ const SEP = '--------------------------------'
 
 export const storageCoreKnownShards: Map<string, ObjectHandle> = new Map();
 
+// ── Local mirror probe ──────────────────────────────────────────────
+// On startup, silently HEAD-request the local mirror (localhost:3841).
+// If it responds, all subsequent shard fetches prefer it; if absent,
+// we skip it entirely.  No console noise either way.
+const LOCAL_MIRROR = 'http://localhost:3841'
+
+/** null = not yet probed, true = available, false = unavailable */
+let _localMirrorAvailable: boolean | null = null
+let _mirrorProbePromise: Promise<boolean> | null = null
+
+/** Returns true if the local mirror responds within 800ms. */
+async function _probeLocalMirror(): Promise<boolean> {
+    try {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 800)
+        // Mirror exposes /api/version — use GET since the Python
+        // SimpleHTTPRequestHandler doesn't handle HEAD by default.
+        const resp = await fetch(`${LOCAL_MIRROR}/api/version`, {
+            method: 'GET',
+            signal: controller.signal,
+        })
+        clearTimeout(timer)
+        return resp.ok
+    } catch {
+        return false
+    }
+}
+
+/**
+ * Call once at app init to kick off the silent mirror probe.
+ * Safe to call multiple times — only the first call triggers a probe.
+ * Returns a promise that resolves to the probe result.
+ */
+export function initLocalMirrorProbe(): Promise<boolean> {
+    if (!_mirrorProbePromise) {
+        _mirrorProbePromise = _probeLocalMirror().then((ok) => {
+            _localMirrorAvailable = ok
+            return ok
+        })
+    }
+    return _mirrorProbePromise
+}
+
+/** Synchronous read of the current mirror state. */
+export function isLocalMirrorAvailable(): boolean | null {
+    return _localMirrorAvailable
+}
+// ─────────────────────────────────────────────────────────────────────
+
 /**
  * Bare bones version of StorageApi.fetchData(). Does not verify handle.
  */
@@ -195,13 +244,22 @@ export async function fetchDataFromHandle(handle: ObjectHandle): Promise<ObjectH
 
     const verification = await h.verification
 
-    // in current design, there are three servers that are checked
-    const server1 = h.storageServer ? h.storageServer : null // todo: this sometimes resolves to '0'??
-    const server2 = 'http://localhost:3841' // local mirror
-    // const useServer = (await this.getStorageServer()) + '/api/v2'
+    // Ensure the mirror probe has run. initLocalMirrorProbe() is idempotent —
+    // first call kicks off the probe, subsequent calls return the same promise.
+    // This way lib384 self-initializes; callers don't need to remember to probe.
+    await initLocalMirrorProbe()
 
-    // we try the servers in order, and we try to fetch from the server
-    for (const server of [server1, server2]) {
+    const remoteServer = h.storageServer ? h.storageServer : null
+    let servers: (string | null)[]
+    if (_localMirrorAvailable === true) {
+        servers = [LOCAL_MIRROR, remoteServer]    // mirror first when probed available
+    } else if (_localMirrorAvailable === false) {
+        servers = [remoteServer]                   // skip mirror when probed unavailable
+    } else {
+        servers = [remoteServer, LOCAL_MIRROR]     // not probed: try both (original behavior)
+    }
+
+    for (const server of servers) {
         if (!server) continue
         if (DBG0) console.log('\n', SEP, "fetchData(), trying server: ", server, '\n', SEP)
         const queryString = '/api/v2/fetchData?id=' + h.id + '&verification=' + verification
@@ -210,12 +268,10 @@ export async function fetchDataFromHandle(handle: ObjectHandle): Promise<ObjectH
             const { hash, handle } = result
             if (DBG0) console.log(`[fetchData] success: fetched from '${server}'`, result)
             handle.storageServer = server // store the one that worked
-            // ChannelApi.knownShards.set(hash, handle);
             storageCoreKnownShards.set(hash, handle)
             return (handle)
         }
     }
-    // if these servers don't work, we throw an error
     throw new Error(`[fetchData] failed to fetch from any server`)
 }
 

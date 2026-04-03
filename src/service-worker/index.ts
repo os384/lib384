@@ -15,8 +15,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-const version = `20240710.3`;
-const SWDB_VERSION = 33; // always increase this (sigh); used for all DBs
+const version = `20260402.3`;
+const SWDB_VERSION = 36; // always increase this (sigh); used for all DBs
 
 /*!
  * Copyright 2023-2024 384, Inc.
@@ -49,6 +49,7 @@ const SERVICE_WORKER_V4 = false
 const SERVICE_WORKER_V5 = true
 
 const prefix = `[OS384 Service Worker] [${version}] `;
+console.log(prefix + `loaded (version ${version}, DB ${SWDB_VERSION}, origin ${self.origin})`);
 
 const settingsDB = new SWDB('__service_worker', 'settings', SWDB_VERSION);
 
@@ -238,15 +239,21 @@ self.addEventListener('message', async event => {
 
                     if (payload.fileMetaDataMap) {
                         const fileMetaDataMap: Map<string, SBFile> = payload.fileMetaDataMap;
-                        if (DBG0) console.log(prefix + `[NEW_APP] message for ${fileMetaDataMap.size} entries\n`, fileMetaDataMap);
+                        console.log(prefix + `[NEW_APP] processing ${fileMetaDataMap.size} file entries`);
                         await urlDB.openDB(); // needs to be operational to process the map
-                        for (const [_key, value] of fileMetaDataMap) {
+                        for (const [key, value] of fileMetaDataMap) {
                             const entryName = currentOrigin + value.path + value.name;
                             if (DBG0) console.log(prefix + `[NEW_APP] Setting entry for '${entryName}'`);
                             await urlDB.put(entryName, value);
-                            if (value.fullPath === "/index.html") {
-                                if (DBG0) console.log(prefix + `[NEW_APP] Setting entry for '${currentOrigin}/'`);
-                                await urlDB.put(currentOrigin + "/", value);
+                            // [20260402] Map directory paths to their index.html so that
+                            // e.g. "/" serves "/index.html", "/guide/" serves "/guide/index.html", etc.
+                            // Check both the SBFile's fullPath property and the map key.
+                            const fullPath = value.fullPath || key;
+                            if (value.name === "index.html" || fullPath.endsWith("/index.html")) {
+                                const dirPath = fullPath.substring(0, fullPath.lastIndexOf("/") + 1);
+                                const dirUrl = currentOrigin + dirPath;
+                                console.log(prefix + `[NEW_APP] directory mapping: '${dirUrl}' -> index.html (key='${key}', name='${value.name}', path='${value.path}', fullPath='${value.fullPath}')`);
+                                await urlDB.put(dirUrl, value);
                             }
                         }
                         // need to reply back to release 'semapore' in 'OS384Loader.ts'
@@ -422,6 +429,14 @@ self.addEventListener('fetch', function (event) {
                 return response;
             } else {
                 if (DBG0) console.log(prefix + "[fetch]MISS (not in cache, local origin): ", url);
+                // [20260402] If no APP_ID has been set yet, the urlDB's database name
+                // is an unresolved promise — any .get() call would hang until the
+                // @timeout decorator fires (12s). Skip the DB lookup entirely and
+                // pass through to network immediately.
+                if (!dbName.done) {
+                    if (DBG0) console.log(prefix + "[fetch] no APP_ID yet, passing through to network:", url);
+                    return fetch(event.request);
+                }
                 if (SERVICE_WORKER_V4 || SERVICE_WORKER_V5) {
                     if (!urlDB) throw new Error(prefix + "urlDB not set. Fatal. (L362)");
                     if (DBG0) console.log(prefix + "[fetch] checking DB for: ", url);
@@ -455,8 +470,12 @@ self.addEventListener('fetch', function (event) {
                     }
                 }
 
-                if (DBG0) console.log(prefix + `[fetch]not found anywhere (will return 404):`, url);
-                return new Response('Not Found', { status: 404, statusText: `Not Found (BLOCKED) '${url}'` });
+                // [20260402] Once an app is loaded, the service worker is the
+                // authority for this subdomain. Missing files are genuinely
+                // missing — return 404 so the app gets a clean error instead
+                // of leaking through to whatever server happens to be on this port.
+                if (DBG0) console.log(prefix + `[fetch] not found anywhere, returning 404:`, url);
+                return new Response('Not Found', { status: 404, statusText: `Not Found '${url}'` });
             }
         })());
     }

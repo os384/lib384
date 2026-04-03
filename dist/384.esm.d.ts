@@ -475,6 +475,14 @@ export declare class SBFile {
  * @public
  */
 export declare function isSBFile(obj: any): obj is SBFile;
+/**
+ * Call once at app init to kick off the silent mirror probe.
+ * Safe to call multiple times — only the first call triggers a probe.
+ * Returns a promise that resolves to the probe result.
+ */
+export declare function initLocalMirrorProbe(): Promise<boolean>;
+/** Synchronous read of the current mirror state. */
+export declare function isLocalMirrorAvailable(): boolean | null;
 declare function getObjectKey(fileHashBuffer: BufferSource, salt: ArrayBuffer): Promise<CryptoKey>;
 /**
  * Lower level version of fetchData(), that can be used to fetch data from
@@ -1450,7 +1458,7 @@ export declare class Channel extends ChannelKeys {
 	 * Currently this is all the budget (please do not abuse),
 	 * but in the future this will be on a per-user basis. (Except for Owner)
 	 */
-	getStorageLimit(): Promise<any>;
+	getStorageLimit(): Promise<number>;
 	/**
 	 * 'Mint' a storaged token off a channel.
 	 */
@@ -2104,6 +2112,7 @@ declare class SBFS {
 	newFileMap: Map<string, SBFile>;
 	toUpload: Array<string>;
 	uploaded: Array<string>;
+	protected _doneUploadingCalled: boolean;
 	lastServerTimestamp: number;
 	private persistTimer;
 	/** Minimal option is the channelServer, everything else is more advanced */
@@ -2125,6 +2134,16 @@ declare class SBFS {
 	private get persistenceEnabled();
 	private get persistenceDebounceMs();
 	private get persistenceKey();
+	private _idb;
+	private _idbReady;
+	/**
+	 * Opens (or returns cached) IndexedDB for SBFS state persistence.
+	 * Falls back to null if IndexedDB is unavailable.
+	 */
+	private openIDB;
+	private idbGet;
+	private idbPut;
+	/** @deprecated kept for one-time migration from localStorage to IndexedDB */
 	private getStateStorage;
 	private serializeFileSetMeta;
 	private serializeState;
@@ -3035,6 +3054,6 @@ export declare const serverApiCosts: {
 	CHANNEL_STORAGE_MULTIPLIER_TTL_ZERO: number;
 };
 export declare function isTextLikeMimeType(mimeType: string): boolean;
-export declare const version = "20260330.2 (1.0.0.rc2.47)";
+export declare const version = "20260403.1 (1.0.0.rc2.51)";
 
 export {};

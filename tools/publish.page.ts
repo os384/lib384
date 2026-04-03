@@ -100,7 +100,7 @@ async function publishFileAsPage(filePath: string, name: string, channelServer: 
         }
     }
 
-    let availableStorage = (await pageChannel.getStorageLimit()).storageLimit;
+    let availableStorage = await pageChannel.getStorageLimit();
     const costOfNewPage = bytes.length * serverApiCosts.CHANNEL_STORAGE_MULTIPLIER;
     if (availableStorage < costOfNewPage) {
         console.log(`.. available storage (${availableStorage / MiB} MiB) a bit low ... topping up`);
@@ -108,7 +108,7 @@ async function publishFileAsPage(filePath: string, name: string, channelServer: 
         console.log(`.. will try to top up from budgetChannel by ${topUpAmount / MiB} MiB ...`);
         const reply = await budgetChannel.budd({ targetChannel: pageChannel.handle, size: topUpAmount });
         // if (DBG0) console.log("Topped up storage reply: ", reply);
-        availableStorage = (await pageChannel.getStorageLimit()).storageLimit;
+        availableStorage = await pageChannel.getStorageLimit();
     }
     console.log("Available storage (possibly after topup): ", availableStorage / MiB, "MiB");
 

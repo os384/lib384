@@ -112,9 +112,10 @@ export class SBFileSystem extends SBFS {
                 console.error("++++ already uploading files, please wait ...")
                 return "[uploadNewSet] Already uploading a set of files, cannot (yet) upload sets in parallel."
             }
-            // We reset these arrays
+            // We reset these arrays and the guard flag
             this.toUpload = []
             this.uploaded = []
+            this._doneUploadingCalled = false
 
             // we make sure all shards are uploaded first before sending 'set' info;
             // iterate over all Map() entries and upload them

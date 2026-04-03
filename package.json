@@ -1,0 +1,44 @@
+{
+  "name": "lib384",
+  "version": "3.20240408.0",
+  "types": "./dist/384.esm.d.ts",
+  "description": "384+SB Library",
+  "author": "384, Inc.",
+  "license": "GPL-3.0-only",
+  "scripts": {
+    "start": "esbuild --watch=forever src/index.ts --bundle --format=esm --minify --define:DBG=false --define:DBG2=false --outfile=dist/384.esm.js & esbuild --watch=forever src/index.ts --bundle --format=iife --minify --define:DBG=false --define:DBG2=false --global-name=__ --outfile=dist/384.iife.js",
+    "start:debug": "tsc -w & esbuild --watch=forever src/index.ts --bundle --format=esm --sourcemap=linked --define:DBG=true --define:DBG2=false --outfile=dist/384.esm.js & esbuild --watch=forever src/index.ts --bundle --format=iife --sourcemap=linked --define:DBG=true --define:DBG2=false --global-name=__ --outfile=dist/384.iife.js",
+    "start:debug2": "tsc -w & esbuild --watch=forever src/index.ts --bundle --format=esm --sourcemap=linked --define:DBG=true --define:DBG2=true --outfile=dist/384.esm.js & esbuild --watch=forever src/index.ts --bundle --format=iife --sourcemap=linked --define:DBG=true --define:DBG2=true --global-name=__ --outfile=dist/384.iife.js",
+    "build": "tsc && esbuild src/index.ts --bundle --format=esm --minify --define:DBG=false --define:DBG2=false --legal-comments=inline --outfile=dist/384.esm.js && esbuild src/index.ts --bundle --format=iife --minify --define:DBG=false --define:DBG2=false --global-name=__  --legal-comments=inline --outfile=dist/384.iife.js && dts-bundle-generator -o dist/384.esm.d.ts src/index.ts",
+    "build:debug": "tsc && esbuild src/index.ts --bundle --format=esm --sourcemap --define:DBG=true --define:DBG2=false --outfile=dist/384.esm.js && esbuild src/index.ts --bundle --format=esm --sourcemap=inline --sources-content=true --define:DBG=true --define:DBG2=false --outfile=dist/384.esm.debug.js && esbuild src/index.ts --bundle --format=iife --sourcemap=linked --define:DBG=true --define:DBG2=false --global-name=__ --outfile=dist/384.iife.js && dts-bundle-generator -o dist/384.esm.d.ts src/index.ts && cp dist/384.esm.d.ts dist/384.esm.debug.d.ts",
+    "build:types": "dts-bundle-generator -o dist/384.esm.d.ts src/index.ts",
+    "build:api-extractor": "api-extractor run --diagnostics --local",
+    "deploy": "./cli.tools/publish.page.ts -f index.js -k $sb384_appLoaderLib",
+    "denoExperiment": "deno run --allow-read --allow-env --allow-run --allow-net --allow-write ./deno.build.ts",
+    "clean": "rm -rf dist/* build/* tests.unit/coverage/*",
+    "test": "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --unstable tests.unit/",
+    "test:channel": "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[channel]' tests.unit/",
+    "test:fast": "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[fast]' tests.unit/",
+    "test:slow": "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[slow]' tests.unit/",
+    "test:dbg0": "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[DBG0]' tests.unit/",
+    "test:coverage": "deno test --coverage=./tests.unit/coverage --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --unstable tests.unit/ && deno coverage --exclude='deno' --exclude='env.js' --exclude='config.js' --exclude='384.esm.js' --unstable --lcov ./tests.unit/coverage/ > ./tests.unit/coverage/lcov.info && genhtml ./tests.unit/coverage/lcov.info --output-directory ./tests.unit/coverage/html && open ./tests.unit/coverage/html/index.html",
+    "all": "npm run clean && npm run build && npm run sw && npm run build:api && (cd demos && npm run all)",
+    "sw": "tsc -p src/service-worker/tsconfig.json && esbuild src/service-worker/index.ts --bundle --format=iife --outfile=dist/service-worker.js --define:DBG=false --define:DBG2=false --minify --legal-comments=inline",
+    "sw:debug": "tsc -p src/service-worker/tsconfig.json && esbuild src/service-worker/index.ts --bundle --format=iife --outfile=dist/service-worker.js --define:DBG=true --define:DBG2=false --legal-comments=inline"
+
+  },
+  "devDependencies": {
+    "@microsoft/api-extractor": "^7.47.0",
+    "dts-bundle-generator": "^8.0.1",
+    "lit": "^3.1.3",
+    "typescript": "5.4.2",
+    "esbuild": "0.24.2"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20240405.0"
+  },
+  "resolutions": {
+    "typescript": "5.4.2"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+}

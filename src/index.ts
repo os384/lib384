@@ -17,7 +17,7 @@
  */
 
 // export const version = '20250328.0' // this is top lev (lib/os) version
-export const version = '20260330.2 (1.0.0.rc2.47)' // wow it's been exactly a year since the last release ...
+export const version = '20260403.1 (1.0.0.rc2.51)' // wow it's been exactly a year since the last release ...
 
 export type {
     ChannelId, SBUserId, SBUserPrivateKey, SBUserPublicKey,
@@ -90,7 +90,7 @@ export type { SBStorageToken } from './storage/StorageToken'
 export { validate_SBStorageToken, generateStorageToken } from './storage/StorageToken'
 export { DeepHistory, ServerDeepHistory, ClientDeepHistory } from './storage/MessageHistory'
 export { HistoryTree, HistoryTreeNode } from './storage/HistoryTree'
-export { fetchDataFromHandle, fetchPayload } from './storage/core'
+export { fetchDataFromHandle, fetchPayload, initLocalMirrorProbe, isLocalMirrorAvailable } from './storage/core'
 
 export { channel } from './channel/index'
 export type { Message } from './channel/Message'

@@ -113,6 +113,7 @@ export class SBFS {
     newFileMap: Map<string, SBFile> = new Map()
     toUpload: Array<string> = []
     uploaded: Array<string> = []
+    protected _doneUploadingCalled = false // guard against double-fire
     lastServerTimestamp: number = 0
     private persistTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -191,6 +192,67 @@ export class SBFS {
         return `sbfs:${channelId}:v1`
     }
 
+    private _idb: IDBDatabase | null = null
+    private _idbReady: Promise<IDBDatabase | null> | null = null
+
+    /**
+     * Opens (or returns cached) IndexedDB for SBFS state persistence.
+     * Falls back to null if IndexedDB is unavailable.
+     */
+    private openIDB(): Promise<IDBDatabase | null> {
+        if (this._idbReady) return this._idbReady
+        this._idbReady = new Promise<IDBDatabase | null>((resolve) => {
+            if (typeof globalThis === 'undefined' || !('indexedDB' in globalThis)) {
+                resolve(null)
+                return
+            }
+            const dbName = 'sbfs-state'
+            const request = indexedDB.open(dbName, 1)
+            request.onupgradeneeded = (event) => {
+                const db = (event.target as IDBOpenDBRequest).result
+                if (!db.objectStoreNames.contains('state')) {
+                    db.createObjectStore('state')
+                }
+            }
+            request.onsuccess = () => {
+                this._idb = request.result
+                resolve(this._idb)
+            }
+            request.onerror = () => {
+                console.warn('[SBFS:state] Failed to open IndexedDB:', request.error)
+                resolve(null)
+            }
+        })
+        return this._idbReady
+    }
+
+    private async idbGet(key: string): Promise<string | null> {
+        const db = await this.openIDB()
+        if (!db) return null
+        return new Promise((resolve) => {
+            try {
+                const tx = db.transaction('state', 'readonly')
+                const req = tx.objectStore('state').get(key)
+                req.onsuccess = () => resolve(req.result ?? null)
+                req.onerror = () => { console.warn('[SBFS:state] idbGet error:', req.error); resolve(null) }
+            } catch { resolve(null) }
+        })
+    }
+
+    private async idbPut(key: string, value: string): Promise<boolean> {
+        const db = await this.openIDB()
+        if (!db) return false
+        return new Promise((resolve) => {
+            try {
+                const tx = db.transaction('state', 'readwrite')
+                const req = tx.objectStore('state').put(value, key)
+                req.onsuccess = () => resolve(true)
+                req.onerror = () => { console.warn('[SBFS:state] idbPut error:', req.error); resolve(false) }
+            } catch { resolve(false) }
+        })
+    }
+
+    /** @deprecated kept for one-time migration from localStorage to IndexedDB */
     private getStateStorage(): Storage | undefined {
         if (!this.persistenceEnabled) return undefined
         try {
@@ -266,19 +328,21 @@ export class SBFS {
     }
 
     private persistStateSoon() {
-        const storage = this.getStateStorage()
-        if (!storage) return
+        if (!this.persistenceEnabled) return
         if (this.persistenceEnabled) {
             console.warn(`[SBFS:state] scheduling persist key='${this.persistenceKey}' in ${this.persistenceDebounceMs}ms`)
         }
         if (this.persistTimer) clearTimeout(this.persistTimer)
-        this.persistTimer = setTimeout(() => {
+        this.persistTimer = setTimeout(async () => {
             this.persistTimer = undefined
             try {
                 const serialized = this.serializeState()
-                storage.setItem(this.persistenceKey, JSON.stringify(serialized))
-                if (this.persistenceEnabled) {
-                    console.warn(`[SBFS:state] persisted ${serialized.fileSets.length} sets, lastServerTimestamp=${serialized.lastServerTimestamp}`)
+                const json = JSON.stringify(serialized)
+                const ok = await this.idbPut(this.persistenceKey, json)
+                if (ok) {
+                    console.warn(`[SBFS:state] persisted ${serialized.fileSets.length} sets (${(json.length / 1024).toFixed(1)} KB) to IndexedDB`)
+                } else {
+                    console.warn("[SBFS:state] IndexedDB write failed, state not persisted")
                 }
             } catch (e) {
                 console.warn("[SBFS] Could not persist SBFS state:", e)
@@ -287,15 +351,27 @@ export class SBFS {
     }
 
     private async hydrateFromPersistence() {
-        const storage = this.getStateStorage()
-        if (!storage) {
-            if (this.persistenceEnabled) console.warn("[SBFS:state] persistence requested, but localStorage is unavailable")
-            return
-        }
+        if (!this.persistenceEnabled) return
         try {
-            const raw = storage.getItem(this.persistenceKey)
+            // Try IndexedDB first
+            let raw = await this.idbGet(this.persistenceKey)
+
+            // One-time migration: check localStorage for legacy data
             if (!raw) {
-                if (this.persistenceEnabled) console.warn(`[SBFS:state] no cached state for key='${this.persistenceKey}'`)
+                const legacyStorage = this.getStateStorage()
+                if (legacyStorage) {
+                    raw = legacyStorage.getItem(this.persistenceKey)
+                    if (raw) {
+                        console.warn(`[SBFS:state] migrating persisted state from localStorage to IndexedDB`)
+                        await this.idbPut(this.persistenceKey, raw)
+                        legacyStorage.removeItem(this.persistenceKey)
+                        console.warn(`[SBFS:state] migration complete, removed localStorage entry`)
+                    }
+                }
+            }
+
+            if (!raw) {
+                console.warn(`[SBFS:state] no cached state for key='${this.persistenceKey}'`)
                 return
             }
             const state = this.deserializeState(JSON.parse(raw))
@@ -305,12 +381,46 @@ export class SBFS {
             }
             console.warn(`[SBFS:state] loaded cached state key='${this.persistenceKey}' sets=${state.fileSets.length} lastServerTimestamp=${state.lastServerTimestamp}`)
             this.lastServerTimestamp = Math.max(0, state.lastServerTimestamp || 0)
+            let hydratedShards = 0
             for (const persisted of state.fileSets) {
                 const meta = this.deserializeFileSetMeta(persisted)
                 if (!meta) continue
                 this.applyFileSetMeta(meta, true, false)
+                // Populate knownShards from persisted file handles so that
+                // uploadNewSet can skip already-uploaded shards on retry.
+                // Handles need iv/salt revived from JSON-serialized plain objects
+                // back to Uint8Array, otherwise validate_ObjectHandle() will throw.
+                for (const sbFile of meta.fileSet.values()) {
+                    if (sbFile.handle && sbFile.hash) {
+                        const h = sbFile.handle as any
+                        if (h.iv) h.iv = reviveTypedArrayLike(h.iv)
+                        if (h.salt) h.salt = reviveTypedArrayLike(h.salt)
+                        if (_check_ObjectHandle(h)) {
+                            ChannelApi.knownShards.set(sbFile.hash, h)
+                            if (sbFile.hash.length > 12)
+                                ChannelApi.knownShards.set(sbFile.hash.slice(0, 12), h)
+                            hydratedShards++
+                        }
+                    } else if (sbFile.handleArray && sbFile.handleArray.length > 0 && sbFile.hash) {
+                        for (let i = 0; i < sbFile.handleArray.length; i++) {
+                            const chunkHandle = sbFile.handleArray[i] as any
+                            if (chunkHandle && chunkHandle.id) {
+                                if (chunkHandle.iv) chunkHandle.iv = reviveTypedArrayLike(chunkHandle.iv)
+                                if (chunkHandle.salt) chunkHandle.salt = reviveTypedArrayLike(chunkHandle.salt)
+                                if (_check_ObjectHandle(chunkHandle)) {
+                                    ChannelApi.knownShards.set(sbFile.hash, chunkHandle)
+                                    hydratedShards++
+                                }
+                            }
+                        }
+                    }
+                }
+                // Register the fileSetShard itself (already revived in deserializeFileSetMeta)
+                if (meta.fileSetShard && meta.fileSetShard.id) {
+                    ChannelApi.knownShards.set(meta.fileSetShard.id, meta.fileSetShard)
+                }
             }
-            console.warn(`[SBFS:state] hydrated ${this.fileSetMap.size} file sets from local persistence`)
+            console.warn(`[SBFS:state] hydrated ${this.fileSetMap.size} file sets, ${hydratedShards} shard handles from local persistence`)
         } catch (e) {
             console.warn("[SBFS] Failed to hydrate persisted state:", e)
         }
@@ -502,6 +612,11 @@ export class SBFS {
 
     // called when we know all the parts (shards) of the set have been uploaded
     async doneUploadingSet(){
+        if (this._doneUploadingCalled) {
+            console.warn("[doneUploadingSet] Already called for this upload cycle, skipping duplicate.")
+            return
+        }
+        this._doneUploadingCalled = true
         if (!this.ledger || !this.options.budgetHandle)
             throw new Error("[SBFileSystem] Ledger or budget handle not set up, cannot upload sets.")
         console.log("++++ done uploading set")

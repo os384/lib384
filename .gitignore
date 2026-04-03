@@ -23,3 +23,5 @@ deno.lock
 
 .vscode/settings.json
 .local.data.json
+
+yarn.lock

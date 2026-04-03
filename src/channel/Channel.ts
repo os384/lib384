@@ -1148,7 +1148,7 @@ export class Channel extends ChannelKeys {
      * Currently this is all the budget (please do not abuse),
      * but in the future this will be on a per-user basis. (Except for Owner)
      */
-    @Ready getStorageLimit() { return (this.callApi('/getStorageLimit')) }
+    @Ready getStorageLimit(): Promise<number> { return (this.callApi('/getStorageLimit') as Promise<number>) }
 
     /**
      * 'Mint' a storaged token off a channel.
