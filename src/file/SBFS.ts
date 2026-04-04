@@ -76,24 +76,6 @@ interface SBFSPersistedState {
     fileSets: Array<SBFSPersistedFileSetMeta>,
 }
 
-function reviveTypedArrayLike(v: unknown): unknown {
-    if (!v || typeof v !== 'object' || Array.isArray(v)) return v
-    if (v instanceof Uint8Array || v instanceof ArrayBuffer) return v
-    const obj = v as Record<string, unknown>
-    const keys = Object.keys(obj)
-    if (keys.length === 0) return v
-    if (!keys.every((k) => /^\d+$/.test(k))) return v
-    const sorted = keys.map((k) => Number(k)).sort((a, b) => a - b)
-    if (!sorted.every((n, i) => n === i)) return v
-    const bytes = new Uint8Array(sorted.length)
-    for (let i = 0; i < sorted.length; i++) {
-        const n = obj[String(i)]
-        if (typeof n !== 'number' || n < 0 || n > 255 || !Number.isInteger(n)) return v
-        bytes[i] = n
-    }
-    return bytes
-}
-
 /**
  * This is the core class for SBFS. Different versions of SBFS extend this.
  */
@@ -226,7 +208,7 @@ export class SBFS {
         return this._idbReady
     }
 
-    private async idbGet(key: string): Promise<string | null> {
+    private async idbGet(key: string): Promise<unknown> {
         const db = await this.openIDB()
         if (!db) return null
         return new Promise((resolve) => {
@@ -239,7 +221,7 @@ export class SBFS {
         })
     }
 
-    private async idbPut(key: string, value: string): Promise<boolean> {
+    private async idbPut(key: string, value: unknown): Promise<boolean> {
         const db = await this.openIDB()
         if (!db) return false
         return new Promise((resolve) => {
@@ -250,18 +232,6 @@ export class SBFS {
                 req.onerror = () => { console.warn('[SBFS:state] idbPut error:', req.error); resolve(false) }
             } catch { resolve(false) }
         })
-    }
-
-    /** @deprecated kept for one-time migration from localStorage to IndexedDB */
-    private getStateStorage(): Storage | undefined {
-        if (!this.persistenceEnabled) return undefined
-        try {
-            if (typeof globalThis === 'undefined') return undefined
-            if (!('localStorage' in globalThis)) return undefined
-            return (globalThis as any).localStorage as Storage
-        } catch {
-            return undefined
-        }
     }
 
     private serializeFileSetMeta(fileSetMeta: FileSetMeta): SBFSPersistedFileSetMeta {
@@ -299,18 +269,9 @@ export class SBFS {
     }
 
     private deserializeFileSetMeta(raw: SBFSPersistedFileSetMeta): FileSetMeta | null {
-        const maybeHandle = {
-            ...(raw.fileSetShard as any),
-            iv: reviveTypedArrayLike((raw.fileSetShard as any)?.iv),
-            salt: reviveTypedArrayLike((raw.fileSetShard as any)?.salt),
-        } as ObjectHandle
-        if (!_check_ObjectHandle(maybeHandle)) {
-            // Older persisted snapshots can contain partially serialized handles.
-            // For cached list rendering we only need a stable id, so accept this fallback.
-            const minimalId = (raw.fileSetShard as any)?.id
-            if (typeof minimalId !== 'string' || minimalId.length === 0) return null
-            maybeHandle.id = minimalId
-        }
+        // IDB structured clone preserves types — no revival needed.
+        const maybeHandle = { ...(raw.fileSetShard as any) } as ObjectHandle
+        if (!_check_ObjectHandle(maybeHandle)) return null
         const fileSet = new Map<string, SBFile>()
         for (const [k, v] of raw.fileSetEntries || []) {
             fileSet.set(k, new SBFile(v))
@@ -337,10 +298,9 @@ export class SBFS {
             this.persistTimer = undefined
             try {
                 const serialized = this.serializeState()
-                const json = JSON.stringify(serialized)
-                const ok = await this.idbPut(this.persistenceKey, json)
+                const ok = await this.idbPut(this.persistenceKey, serialized)
                 if (ok) {
-                    console.warn(`[SBFS:state] persisted ${serialized.fileSets.length} sets (${(json.length / 1024).toFixed(1)} KB) to IndexedDB`)
+                    console.warn(`[SBFS:state] persisted ${serialized.fileSets.length} sets to IndexedDB`)
                 } else {
                     console.warn("[SBFS:state] IndexedDB write failed, state not persisted")
                 }
@@ -353,28 +313,12 @@ export class SBFS {
     private async hydrateFromPersistence() {
         if (!this.persistenceEnabled) return
         try {
-            // Try IndexedDB first
-            let raw = await this.idbGet(this.persistenceKey)
-
-            // One-time migration: check localStorage for legacy data
-            if (!raw) {
-                const legacyStorage = this.getStateStorage()
-                if (legacyStorage) {
-                    raw = legacyStorage.getItem(this.persistenceKey)
-                    if (raw) {
-                        console.warn(`[SBFS:state] migrating persisted state from localStorage to IndexedDB`)
-                        await this.idbPut(this.persistenceKey, raw)
-                        legacyStorage.removeItem(this.persistenceKey)
-                        console.warn(`[SBFS:state] migration complete, removed localStorage entry`)
-                    }
-                }
-            }
-
+            const raw = await this.idbGet(this.persistenceKey)
             if (!raw) {
                 console.warn(`[SBFS:state] no cached state for key='${this.persistenceKey}'`)
                 return
             }
-            const state = this.deserializeState(JSON.parse(raw))
+            const state = this.deserializeState(raw)
             if (!state) {
                 console.warn(`[SBFS:state] cached state present but invalid, key='${this.persistenceKey}'`)
                 return
@@ -386,31 +330,21 @@ export class SBFS {
                 const meta = this.deserializeFileSetMeta(persisted)
                 if (!meta) continue
                 this.applyFileSetMeta(meta, true, false)
-                // Populate knownShards from persisted file handles so that
-                // uploadNewSet can skip already-uploaded shards on retry.
-                // Handles need iv/salt revived from JSON-serialized plain objects
-                // back to Uint8Array, otherwise validate_ObjectHandle() will throw.
+                // Populate knownShards from persisted file handles.
+                // IDB structured clone preserves types — no revival needed.
                 for (const sbFile of meta.fileSet.values()) {
                     if (sbFile.handle && sbFile.hash) {
-                        const h = sbFile.handle as any
-                        if (h.iv) h.iv = reviveTypedArrayLike(h.iv)
-                        if (h.salt) h.salt = reviveTypedArrayLike(h.salt)
-                        if (_check_ObjectHandle(h)) {
-                            ChannelApi.knownShards.set(sbFile.hash, h)
+                        if (_check_ObjectHandle(sbFile.handle)) {
+                            ChannelApi.knownShards.set(sbFile.hash, sbFile.handle)
                             if (sbFile.hash.length > 12)
-                                ChannelApi.knownShards.set(sbFile.hash.slice(0, 12), h)
+                                ChannelApi.knownShards.set(sbFile.hash.slice(0, 12), sbFile.handle)
                             hydratedShards++
                         }
                     } else if (sbFile.handleArray && sbFile.handleArray.length > 0 && sbFile.hash) {
-                        for (let i = 0; i < sbFile.handleArray.length; i++) {
-                            const chunkHandle = sbFile.handleArray[i] as any
-                            if (chunkHandle && chunkHandle.id) {
-                                if (chunkHandle.iv) chunkHandle.iv = reviveTypedArrayLike(chunkHandle.iv)
-                                if (chunkHandle.salt) chunkHandle.salt = reviveTypedArrayLike(chunkHandle.salt)
-                                if (_check_ObjectHandle(chunkHandle)) {
-                                    ChannelApi.knownShards.set(sbFile.hash, chunkHandle)
-                                    hydratedShards++
-                                }
+                        for (const chunkHandle of sbFile.handleArray) {
+                            if (chunkHandle?.id && _check_ObjectHandle(chunkHandle)) {
+                                ChannelApi.knownShards.set(sbFile.hash, chunkHandle)
+                                hydratedShards++
                             }
                         }
                     }

@@ -103,7 +103,12 @@ export class SBFileSystem extends SBFS {
             this.newFileMap = new Map()
             for (const f of fileList) {
                 if (!f.hash) throw new Error("Internal Error (L195)")
-                this.newFileMap.set(f.hash, f)
+                let key = f.fullName
+                if (!key) {
+                    console.warn(`[uploadNewSet] SBFile missing fullName, falling back to hash as map key:`, f.name, f.hash)
+                    key = f.hash
+                }
+                this.newFileMap.set(key, f)
             }
 
             // ToDo: currently code only allows one set at a time, we need to allow multiple.
