@@ -13,7 +13,7 @@
     "build:debug": "tsc && esbuild src/index.ts --bundle --format=esm --sourcemap --define:DBG=true --define:DBG2=false --outfile=dist/384.esm.js && esbuild src/index.ts --bundle --format=esm --sourcemap=inline --sources-content=true --define:DBG=true --define:DBG2=false --outfile=dist/384.esm.debug.js && esbuild src/index.ts --bundle --format=iife --sourcemap=linked --define:DBG=true --define:DBG2=false --global-name=__ --outfile=dist/384.iife.js && dts-bundle-generator -o dist/384.esm.d.ts src/index.ts && cp dist/384.esm.d.ts dist/384.esm.debug.d.ts",
     "build:types": "dts-bundle-generator -o dist/384.esm.d.ts src/index.ts",
     "build:api-extractor": "api-extractor run --diagnostics --local",
-    "deploy": "./cli.tools/publish.page.ts -f index.js -k $sb384_appLoaderLib",
+    "deploy": "384 publish -f index.js -k $sb384_appLoaderLib",
     "denoExperiment": "deno run --allow-read --allow-env --allow-run --allow-net --allow-write ./deno.build.ts",
     "clean": "rm -rf dist/* build/* tests.unit/coverage/*",
     "test": "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --unstable tests.unit/",

@@ -18,22 +18,20 @@ $(CLI_TARGET): $(CLI_SRCS)
 	@mkdir -p $(CLI_BIN_DIR)
 	$(DENO) compile $(DENO_FLAGS) -o $@ $<
 
-deployCLI: cli
-	@echo **** WARNING CLI deployment not yet implemented ****
-
 # note: these will deploy to local or staging depending on env.js
-deployLib384: deployCLI
-	cd dist && \
-	../cli.tools/publish.page.ts -f 384.esm.js -k $$sb384_lib384_esm && \
-	../cli.tools/publish.page.ts -f 384.iife.js -k $$sb384_lib384_iife && \
-	../cli.tools/publish.page.ts -f 384.esm.d.ts -k $$sb384_lib384_types
+deployLib384:
+	384 publish -f 384.esm.js -k $$sb384_lib384_esm && \
+	384 publish -f 384.iife.js -k $$sb384_lib384_iife && \
+	384 publish -f 384.esm.d.ts -k $$sb384_lib384_types
 
-# note: these will deploy to local or staging depending on env.js
-deployLoader:
-	cd demos/13.app.loader && \
-	../../cli.tools/publish.page.ts -f index.js -k $$sb384_appLoaderLib
+# (loader not developed from dedicated "loader" repo)
+# # note: these will deploy to local or staging depending on env.js
+# deployLoader:
+# 	cd demos/13.app.loader && \
+# 	384 publish -f index.js -k $$sb384_appLoaderLib
 
-deployAll: deployLib384 deployLoader
+# deployAll: deployLib384 deployLoader
+deployAll: deployLib384
 
 deployLib: deployLib384
 
@@ -46,17 +44,19 @@ assert-staging:
 buildLib384:
 	yarn build
 
-# the loader is different for local and staging
-# (it pulls it's 'index.js' from either local or staging servers)
-buildLoaderLocal: assert-local
-	cd demos && yarn 13:local
+# # the loader is different for local and staging
+# # (it pulls it's 'index.js' from either local or staging servers)
+# buildLoaderLocal: assert-local
+# 	cd demos && yarn 13:local
 
-buildLoaderStaging: assert-staging
-	cd demos && yarn 13:staging
+# buildLoaderStaging: assert-staging
+# 	cd demos && yarn 13:staging
 
-buildLocal: assert-local buildLib384 buildLoaderLocal buildSWdbg
+# buildLocal: assert-local buildLib384 buildLoaderLocal buildSWdbg
+buildLocal: assert-local buildLib384 buildSWdbg
 
-buildStaging: assert-staging buildLib384 buildLoaderStaging buildSW
+# buildStaging: assert-staging buildLib384 buildLoaderStaging buildSW
+buildStaging: assert-staging buildLib384 buildSW
 
 sw buildSW:
 	yarn sw

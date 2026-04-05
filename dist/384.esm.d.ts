@@ -2143,8 +2143,6 @@ declare class SBFS {
 	private openIDB;
 	private idbGet;
 	private idbPut;
-	/** @deprecated kept for one-time migration from localStorage to IndexedDB */
-	private getStateStorage;
 	private serializeFileSetMeta;
 	private serializeState;
 	private deserializeState;
@@ -3054,6 +3052,6 @@ export declare const serverApiCosts: {
 	CHANNEL_STORAGE_MULTIPLIER_TTL_ZERO: number;
 };
 export declare function isTextLikeMimeType(mimeType: string): boolean;
-export declare const version = "20260403.1 (1.0.0.rc2.51)";
+export declare const version = "20260403.2 (1.0.0.rc2.52)";
 
 export {};

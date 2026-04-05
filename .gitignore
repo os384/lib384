@@ -25,3 +25,5 @@ deno.lock
 .local.data.json
 
 yarn.lock
+bin/
+*~

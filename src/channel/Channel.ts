@@ -1148,7 +1148,15 @@ export class Channel extends ChannelKeys {
      * Currently this is all the budget (please do not abuse),
      * but in the future this will be on a per-user basis. (Except for Owner)
      */
-    @Ready getStorageLimit(): Promise<number> { return (this.callApi('/getStorageLimit') as Promise<number>) }
+    @Ready async getStorageLimit(): Promise<number> {
+        const result = await this.callApi('/getStorageLimit');
+        const storageLimit = result?.storageLimit;
+        if (typeof storageLimit !== 'number') {
+            const payload = typeof result === 'string' ? result : JSON.stringify(result);
+            throw new SBError(`[Channel.getStorageLimit] expected { storageLimit: number }, got: ${payload}`);
+        }
+        return storageLimit;
+    }
 
     /**
      * 'Mint' a storaged token off a channel.
@@ -1258,8 +1266,8 @@ export class Channel extends ChannelKeys {
             }
             if (DBG0) console.log("[budd()]: success, newHandle:", newHandle)
             return(validate_ChannelHandle(newHandle))
-        } catch (e) {
-            throw new Error('[budd] Could not get storage token from server, are you sure about the size?');
+        } catch (e: any) {
+            throw new Error(`[budd] Could not get storage token from server, are you sure about the size? ${WrapError(e)}`);
         }
     }
 

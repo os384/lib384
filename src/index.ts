@@ -17,7 +17,7 @@
  */
 
 // export const version = '20250328.0' // this is top lev (lib/os) version
-export const version = '20260403.1 (1.0.0.rc2.51)' // wow it's been exactly a year since the last release ...
+export const version = '20260403.2 (1.0.0.rc2.52)' // wow it's been exactly a year since the last release ...
 
 export type {
     ChannelId, SBUserId, SBUserPrivateKey, SBUserPublicKey,
