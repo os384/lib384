@@ -3006,6 +3006,8 @@ export declare class AppMain extends SBEventTarget {
 	get initialized(): boolean;
 	/** Returns channelServer you're on */
 	get channelServer(): string;
+	/** Returns the ledger passphrase (from manifest, or the default fallback). */
+	get ledgerPassPhrase(): string;
 	/** Returns the 'ledger' handle, throws if there is none. */
 	get ledgerHandle(): ChannelHandle;
 	/** Returns a promise to the 'ledger' channel, throws if there is none. */
@@ -3052,6 +3054,6 @@ export declare const serverApiCosts: {
 	CHANNEL_STORAGE_MULTIPLIER_TTL_ZERO: number;
 };
 export declare function isTextLikeMimeType(mimeType: string): boolean;
-export declare const version = "20260403.2 (1.0.0.rc2.52)";
+export declare const version = "0.20260408.1";
 
 export {};

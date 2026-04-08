@@ -152,7 +152,11 @@ export class AppMain extends SBEventTarget {
     #manifest: any = {};
     #channelMap: Map<string, any> = new Map();
 
-    // TODO: should come from manifest
+    // Default fallback passphrase used when the manifest doesn't specify one.
+    // In production the loader generates a unique passphrase per channel via
+    // strongphrase.generate() and includes it in the manifest. For local dev
+    // with a skeleton manifest that omits the passphrase, this fallback keeps
+    // things functional. See init() line that reads from channelMap.
     #ledgerPassPhrase = "officer stitch stretched"
 
     #initialized = false;
@@ -221,6 +225,8 @@ export class AppMain extends SBEventTarget {
         if (this.#channelMap.get('ledger')) {
             this.#ledgerHandle = this.#channelMap.get('ledger')?.handle
             this.#ledgerPassPhrase = this.#channelMap.get('ledger')!.passphrase
+            if (!this.#ledgerPassPhrase)
+                console.warn('[AppMain] Ledger channel present in manifest but no passphrase — manifest needs to be resolved (384 manifest-resolve)')
         }
         
         this.protocol = new Protocol_AES_GCM_256(this.#ledgerPassPhrase, keyInfo)
@@ -233,6 +239,11 @@ export class AppMain extends SBEventTarget {
     @initialized get channelServer() {
         if (!this.#channelServer) throw new Error("[AppMain] No channel server");
         return this.#channelServer
+    }
+
+    /** Returns the ledger passphrase (from manifest, or the default fallback). */
+    @initialized get ledgerPassPhrase() {
+        return this.#ledgerPassPhrase
     }
 
     /** Returns the 'ledger' handle, throws if there is none. */

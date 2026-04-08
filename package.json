@@ -1,6 +1,6 @@
 {
   "name": "lib384",
-  "version": "3.20240408.0",
+  "version": "0.20260408.1",
   "types": "./dist/384.esm.d.ts",
   "description": "384+SB Library",
   "author": "384, Inc.",
