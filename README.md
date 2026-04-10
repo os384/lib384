@@ -62,15 +62,14 @@ Make sure you have:
   yarn build
 ```
 
-
-
 ### Test configuration
 
 Use `384 init` if you haven't done so already.
 
 Tests connect to a running os384 stack (local or dev servers).
 
-See the [os384/services](https://github.com/os384/services) repo for running servers locally.
+See the [os384/services](https://github.com/os384/services) repo for running servers locally;
+
 
 ## Build output
 
@@ -84,7 +83,8 @@ See the [os384/services](https://github.com/os384/services) repo for running ser
 
 ## Deploymenet
 
-After building, deploy artifacts to os384 channel pages:
+After building, deploy artifacts to os384 channel pages, you can do it directly
+as below, or (preferred) let the makefile do it (eg `make all-staging`).
 
 ```sh
   cd dist
@@ -95,6 +95,28 @@ After building, deploy artifacts to os384 channel pages:
 
 You will need to have environment variables set up for the above (obviously).
 
+`publish` will report back what pages things have gone to, eg:
+
+```sh
+    ======================================================================================
+    Publishing file as Page:  dist/384.esm.d.ts 384.esm.d.ts https://c3.384.dev <KEY>
+    ======================================================================================
+
+    Available storage (possibly after topup):  14.22 MiB
+    {
+        success: true,
+        pageKey: "<KEY>>",
+        size: 983040
+    }
+
+    ======================================================================================
+    Working full URL (file type 'video/mp2t')
+    https://c3.384.dev/api/v2/page/u2d23u7w/384.esm.d.ts
+    ======================================================================================
+```
+
+Note that if you're building, regression testing, deploying, etc, you'll need storage
+budgets across the pertinent channels (see `~/.os384/keys.js`).
 
 ## LICENSE
 

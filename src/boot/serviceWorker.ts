@@ -63,16 +63,27 @@ export class SBServiceWorker {
     // sb384cachePromise: Promise<Cache | undefined>;
     #sb384cache: Cache | undefined;
     #sbfs: SBFileSystem;
+    #scope: string | undefined;
+    #cacheName: string;
     // serviceWorkerReadyPromise: Promise<void>;
     ready: Promise<boolean>;
 
-    constructor(sbfs: SBFileSystem, messageHandler: (event: MessageEvent) => void) {
+    /**
+     * @param sbfs       — the SBFileSystem to use for fetching payloads
+     * @param messageHandler — handler for messages from the service worker
+     * @param options    — optional configuration
+     * @param options.scope — SW registration scope (e.g. '/abcdef12/' for static mode)
+     * @param options.cacheName — override the default cache name (for namespace isolation)
+     */
+    constructor(sbfs: SBFileSystem, messageHandler: (event: MessageEvent) => void, options?: { scope?: string, cacheName?: string }) {
         this.#sbfs = sbfs;
+        this.#scope = options?.scope;
+        this.#cacheName = options?.cacheName || sb384CacheName;
         if (DBG0) console.warn(`[SBServiceWorker] [constructor] ++++ setting up file helper service worker (${serverPrefix}) `)
         if (DBG2) console.log("[SBServiceWorker] [constructor ++++ SBFS:", this.#sbfs);
         this.ready = new Promise(async (resolve, _reject) => {
             try {
-                this.#sb384cache = await caches.open(sb384CacheName)
+                this.#sb384cache = await caches.open(this.#cacheName)
                 resolve(await this.setupServiceWorker(messageHandler))
             } catch (e) {
                 console.error("[SBServiceWorker] [constructor] Error setting up service worker: " + e)
@@ -108,6 +119,17 @@ export class SBServiceWorker {
             return Promise.reject("[SBServiceWorker] ERROR: navigator.serviceWorker is not available");
         }
         try {
+            // In scoped mode (static.384.dev), register with an explicit
+            // scope so the SW only controls /<prefix>/ paths.  The SW file
+            // lives at the root, so the server must send
+            // `Service-Worker-Allowed: /` for this to work.
+            const swRegOpts: RegistrationOptions | undefined = this.#scope
+                ? { scope: this.#scope }
+                : undefined;
+            const swScript = this.#scope
+                ? '/service-worker.js'   // absolute path — needed for scoped registration
+                : 'service-worker.js';   // relative — original behavior
+
             const setOfRegistrations = await navigatorObject.serviceWorker.getRegistrations()
             if (setOfRegistrations.length > 1) {
                 console.error("[devLoader] ERROR: we should never have MANY service workers registered")
@@ -116,39 +138,41 @@ export class SBServiceWorker {
                     await registration.unregister();
                 }
                 if (DBG0) console.log('[SBServiceWorker] ++++ ... finished unregistering, registering a fresh one');
-                await navigatorObject.serviceWorker.register('service-worker.js');
+                await navigatorObject.serviceWorker.register(swScript, swRegOpts);
             } else if (setOfRegistrations.length === 1) {
                 if (DBG0) console.log("[devLoader] ++++ we already have a service worker registered")
             } else {
                 if (DBG0) console.log('[SBServiceWorker] ++++ Did not have a service worker, registering one');
-                await navigatorObject.serviceWorker.register('service-worker.js');
+                await navigatorObject.serviceWorker.register(swScript, swRegOpts);
             }
 
             if (DBG0) console.log('[SBServiceWorker] ++++ waiting for service worker to be ready then setting up message handler');
             await navigatorObject.serviceWorker.ready;
             navigatorObject.serviceWorker.addEventListener('message', messageHandler);
 
-
             if (!navigatorObject.serviceWorker.controller) {
-                if (sessionStorage.getItem('swReloaded')) {
-                    // Flag is present, so we've already reloaded once
-                    console.warn("[SBServiceWorker] Already reloaded once, avoid looping.");
-                    sessionStorage.removeItem('swReloaded');  // Optionally clear the flag here or after successful control
-                    return false;
-                } else {
-                    // Set the flag and reload
-                    console.warn("[SBServiceWorker] No controller after registration, setting flag and reloading page.");
-                    sessionStorage.setItem('swReloaded', 'true');
-                    window.location.reload();
-                    return false; // we should never get here
-                }
-            } else {
-                // Clear the flag if everything is okay
-                sessionStorage.removeItem('swReloaded');
-                console.log("[SBServiceWorker] Service worker is ready and controlling the page.");
-                navigatorObject.serviceWorker.controller.postMessage({ type: 'INIT' });
-                return true;
+                // First SW registration: clients.claim() hasn't fired yet.
+                // Wait for the controllerchange event (fires when the SW
+                // calls clients.claim() during activation) instead of
+                // the fragile reload-once pattern.
+                console.log("[SBServiceWorker] No controller yet, waiting for controllerchange ...");
+                await new Promise<void>((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error("[SBServiceWorker] Timed out waiting for controllerchange (15s)"));
+                    }, 15_000);
+                    navigatorObject!.serviceWorker.addEventListener('controllerchange', () => {
+                        clearTimeout(timeout);
+                        console.log("[SBServiceWorker] controllerchange fired — SW now controls the page.");
+                        resolve();
+                    }, { once: true });
+                });
             }
+
+            // At this point we have a controller
+            sessionStorage.removeItem('swReloaded'); // clean up any stale flag from old code
+            console.log("[SBServiceWorker] Service worker is ready and controlling the page.");
+            navigatorObject.serviceWorker.controller!.postMessage({ type: 'INIT' });
+            return true;
 
             // // verify we have controller, otherwise we probably need to reload
             // if (!navigatorObject.serviceWorker.controller) {

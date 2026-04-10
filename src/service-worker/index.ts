@@ -15,8 +15,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-const version = `20260402.4`;
-const SWDB_VERSION = 41; // always increase this (sigh); used for all DBs
+const version = `20260408.5`;
+const SWDB_VERSION = 44; // always increase this (sigh); used for all DBs
 
 /*!
  * Copyright 2023-2024 384, Inc.
@@ -92,6 +92,21 @@ let urlDB = new SWDB(dbName.promise, 'url', SWDB_VERSION);
 
 const currentOrigin: string = self.origin;
 
+// ── Static / prefix mode state ──────────────────────────────────
+// Multiple prefix-bearing apps can coexist on a shared hostname
+// (e.g. static.384.dev).  Each gets its own IndexedDB (keyed by
+// appId) and a unique URL prefix.  The SW strips the prefix from
+// incoming requests before looking up files in the per-app DB.
+
+/** clientId → prefix for the tab that loaded the app */
+const clientPrefixMap = new Map<string, string>();
+
+/** prefix → per-app DB (separate from the non-prefix urlDB) */
+const prefixDBs = new Map<string, SWDB>();
+
+/** prefix → hashed appId (for logging / debugging) */
+const prefixAppIds = new Map<string, string>();
+
 self.addEventListener('install', async function (_event) {
     console.warn(prefix + `[install] [INFO] Service worker installed (version ${version}) (DB ${SWDB_VERSION})`); // warn just to be visible
     if (DBG0) console.log(prefix + "[install] Opening our settings database")
@@ -105,6 +120,23 @@ self.addEventListener('install', async function (_event) {
         dbName.fulfill(savedAppId); // propagates to urlDB
         urlDB.openDB() // no need to block
     }
+
+    // Restore prefix→appId mappings from previous session so that
+    // prefix fetch handling works immediately after SW restart.
+    // Stored as a JSON object: { "BhoW6b": "rc1PzlntHsyQ", ... }
+    const savedPrefixes = await settingsDB.get("PREFIX_MAP");
+    if (savedPrefixes && typeof savedPrefixes === 'object') {
+        for (const [pfx, appId] of Object.entries(savedPrefixes)) {
+            if (typeof appId === 'string' && !prefixDBs.has(pfx)) {
+                const pdb = new SWDB(Promise.resolve(appId), 'url', SWDB_VERSION);
+                await pdb.openDB();
+                prefixDBs.set(pfx, pdb);
+                prefixAppIds.set(pfx, appId);
+                console.log(prefix + `[install] Restored prefix '${pfx}' (appId: ${appId})`);
+            }
+        }
+    }
+
     self.skipWaiting(); // activates the new service worker immediately (needed?)
 });
 
@@ -209,45 +241,91 @@ self.addEventListener('message', async event => {
                     if (!payload || !payload.appId)
                         throw new Error(prefix + '[NEW_APP] Received message without appId');
 
-                    // initially we only block on verifying the new and any old app id ('[A]' and '[B]' below)
-                    const newAppId = await hashString12(payload.appId); // [A]
+                    const newAppId = await hashString12(payload.appId);
                     if (!newAppId || newAppId.length < 12) throw new Error(prefix + '[NEW_APP] Invalid new app id')
-                    const oldAppId = dbName.done ? await dbName.promise : null; // [B]
 
-                    if (DBG0)  console.log(prefix + `[NEW_APP] Received new app id '${newAppId}' (old: '${oldAppId}')`);
+                    // ── Prefix mode (static): per-app DB, no clearing ──
+                    if (payload.prefix) {
+                        const pfx = payload.prefix as string;
+                        console.log(prefix + `[NEW_APP] Prefix mode: prefix='${pfx}', appId='${newAppId}'`);
+
+                        // Track clientId → prefix
+                        if (event.source && 'id' in event.source) {
+                            const clientId = (event.source as Client).id;
+                            clientPrefixMap.set(clientId, pfx);
+                            if (DBG0) console.log(prefix + `[NEW_APP] Mapped client '${clientId}' → prefix '${pfx}'`);
+                        }
+
+                        // Create or reuse a per-prefix DB
+                        if (!prefixDBs.has(pfx)) {
+                            const pdb = new SWDB(Promise.resolve(newAppId), 'url', SWDB_VERSION);
+                            await pdb.openDB();
+                            prefixDBs.set(pfx, pdb);
+                            prefixAppIds.set(pfx, newAppId);
+                            // Persist so we can reconstruct after SW restart
+                            const prefixMap = (await settingsDB.get("PREFIX_MAP")) || {};
+                            prefixMap[pfx] = newAppId;
+                            await settingsDB.put("PREFIX_MAP", prefixMap);
+                            console.log(prefix + `[NEW_APP] Created DB for prefix '${pfx}' (appId: ${newAppId})`);
+                        }
+                        const targetDB = prefixDBs.get(pfx)!;
+
+                        // Store files (unprefixed paths)
+                        if (payload.fileMetaDataMap) {
+                            const fileMetaDataMap: Map<string, SBFile> = payload.fileMetaDataMap;
+                            console.log(prefix + `[NEW_APP] prefix '${pfx}': processing ${fileMetaDataMap.size} file entries`);
+                            for (const [key, value] of fileMetaDataMap) {
+                                const entryName = currentOrigin + value.path + value.name;
+                                if (DBG0) console.log(prefix + `[NEW_APP] Setting entry for '${entryName}'`);
+                                await targetDB.put(entryName, value);
+                                // Directory mapping: "/" → index.html, "/guide/" → "/guide/index.html", etc.
+                                const fullPath = value.fullPath || key;
+                                if (value.name === "index.html" || fullPath.endsWith("/index.html")) {
+                                    const dirPath = fullPath.substring(0, fullPath.lastIndexOf("/") + 1);
+                                    const dirUrl = currentOrigin + dirPath;
+                                    console.log(prefix + `[NEW_APP] directory mapping: '${dirUrl}' -> index.html`);
+                                    await targetDB.put(dirUrl, value);
+                                }
+                            }
+                            // Reply to release semaphore in OS384Loader.ts
+                            if (event.source && 'id' in event.source) {
+                                event.source.postMessage({ type: 'FILE_META_DATA_MAP_DONE' });
+                                if (DBG0) console.log(prefix + '[NEW_APP] Replied FILE_META_DATA_MAP_DONE (prefix mode)');
+                            } else {
+                                console.error(prefix + '[NEW_APP] Cannot respond: no event.source.id');
+                            }
+                        }
+                        break; // done with prefix mode
+                    }
+
+                    // ── Normal mode (isolated subdomain): single DB, clear on change ──
+                    const oldAppId = dbName.done ? await dbName.promise : null;
+                    if (DBG0) console.log(prefix + `[NEW_APP] Received new app id '${newAppId}' (old: '${oldAppId}')`);
+
                     if (newAppId !== oldAppId) {
                         console.warn(prefix + '[NEW_APP] [INFO] Received APP_ID message. Clearing state. New app id:', newAppId, " Old app id:", oldAppId);
-                        // first app we get, or we are changing app
                         if (dbName.done) {
-                            // something else was running, so we clear that out
                             const oldUrlDB = urlDB;
-                            dbName = new PromiseFactory<string>(); // kill old name
-                            urlDB = new SWDB(dbName.promise, 'url', SWDB_VERSION); // reset the urlDB
-                            // block especially since this might be same DB, and we don't want a race
-                            // condition where we might be deleting it after we (below) create it
+                            dbName = new PromiseFactory<string>();
+                            urlDB = new SWDB(dbName.promise, 'url', SWDB_VERSION);
                             await oldUrlDB.clearAndDeleteDatabase()
                             await clearCache()
-                            // sb384cachePromise = caches.open('sb384cache'); // reset the cache
                         }
                         console.log(prefix + '[NEW_APP] Setting new app id:', newAppId);
                         if (newAppId !== oldAppId) await settingsDB.put("APP_ID", newAppId)
+                        if (!dbName.done) dbName.fulfill(newAppId)
+                    } else {
+                        if (!dbName.done) dbName.fulfill(newAppId)
                     }
-
-                    // regardless, we make sure urlDB can move forward. if a DB
-                    // didn't exist, this will propagate to create it.
-                    if (!dbName.done) dbName.fulfill(newAppId)
 
                     if (payload.fileMetaDataMap) {
                         const fileMetaDataMap: Map<string, SBFile> = payload.fileMetaDataMap;
                         console.log(prefix + `[NEW_APP] processing ${fileMetaDataMap.size} file entries`);
-                        await urlDB.openDB(); // needs to be operational to process the map
+                        await urlDB.openDB();
                         for (const [key, value] of fileMetaDataMap) {
                             const entryName = currentOrigin + value.path + value.name;
                             if (DBG0) console.log(prefix + `[NEW_APP] Setting entry for '${entryName}'`);
                             await urlDB.put(entryName, value);
-                            // [20260402] Map directory paths to their index.html so that
-                            // e.g. "/" serves "/index.html", "/guide/" serves "/guide/index.html", etc.
-                            // Check both the SBFile's fullPath property and the map key.
                             const fullPath = value.fullPath || key;
                             if (value.name === "index.html" || fullPath.endsWith("/index.html")) {
                                 const dirPath = fullPath.substring(0, fullPath.lastIndexOf("/") + 1);
@@ -256,11 +334,8 @@ self.addEventListener('message', async event => {
                                 await urlDB.put(dirUrl, value);
                             }
                         }
-                        // need to reply back to release 'semapore' in 'OS384Loader.ts'
                         if (event.source && 'id' in event.source) {
-                            event.source.postMessage({
-                                type: 'FILE_META_DATA_MAP_DONE'
-                            });
+                            event.source.postMessage({ type: 'FILE_META_DATA_MAP_DONE' });
                             if (DBG0) console.log(prefix + '[NEW_APP] Replied to FILE_META_DATA_MAP message (done loading files)');
                             if (DBG0) await debugOutput();
                         } else {
@@ -416,13 +491,104 @@ self.addEventListener('fetch', function (event) {
         if (DBG0) console.log(prefix + `fetch - ${event.request.method} request: `, url);
         // optionally we could have an approach where only certain scopes/domains are looked at
         event.respondWith((async () => {
-            // first we try unmodified URL
+            // ── Determine if this is a prefix request ──────────────
+            // In static/prefix mode, the browser requests URLs like
+            // /BhoW6b/assets/style.css but the DB stores files WITHOUT
+            // prefix (e.g. origin + /assets/style.css). The SW strips
+            // the prefix before looking up in the per-app DB.
+
+            const reqPath = new URL(url).pathname;
+            const reqSearch = new URL(url).search;
+
+            // 1. Try clientId → prefix mapping first
+            let pfx: string | undefined = event.clientId
+                ? clientPrefixMap.get(event.clientId)
+                : undefined;
+
+            // 2. For navigation requests, also check resultingClientId
+            if (!pfx && event.resultingClientId) {
+                pfx = clientPrefixMap.get(event.resultingClientId);
+            }
+
+            // 3. Fall back to URL path matching against known prefixes
+            if (!pfx) {
+                for (const knownPrefix of prefixDBs.keys()) {
+                    if (reqPath.startsWith(`/${knownPrefix}/`) || reqPath === `/${knownPrefix}`) {
+                        pfx = knownPrefix;
+                        break;
+                    }
+                }
+            }
+
+            // Map clientId(s) → prefix for future requests
+            if (pfx) {
+                if (event.clientId) clientPrefixMap.set(event.clientId, pfx);
+                if (event.resultingClientId) clientPrefixMap.set(event.resultingClientId, pfx);
+            }
+
+            // ── Prefix mode: strip prefix, look up in per-app DB ──
+            if (pfx) {
+                const targetDB = prefixDBs.get(pfx);
+                if (!targetDB) {
+                    console.error(prefix + `[fetch] prefix '${pfx}' has no DB`);
+                    return new Response('Not Found', { status: 404, statusText: 'No DB for prefix' });
+                }
+
+                // Verify request path actually starts with the prefix
+                if (!reqPath.startsWith(`/${pfx}/`) && reqPath !== `/${pfx}`) {
+                    if (DBG0) console.log(prefix + `[fetch] prefix mismatch: client has prefix '${pfx}' but path is '${reqPath}'`);
+                    return new Response('Not Found', { status: 404, statusText: 'Prefix mismatch' });
+                }
+
+                // Strip prefix: /BhoW6b/assets/style.css → /assets/style.css
+                let strippedPath: string;
+                if (reqPath === `/${pfx}` || reqPath === `/${pfx}/`) {
+                    strippedPath = '/';
+                } else {
+                    strippedPath = reqPath.substring(pfx.length + 1); // skip "/BhoW6b"
+                }
+                const lookupUrl = currentOrigin + strippedPath + reqSearch;
+                if (DBG0) console.log(prefix + `[fetch] prefix strip: '${url}' → '${lookupUrl}'`);
+
+                // Cache check (using original prefixed URL as cache key)
+                const ourCache = await sb384cachePromise;
+                let response = await ourCache.match(url);
+                if (!response) response = await ourCache.match(url, { ignoreSearch: true });
+                if (response) {
+                    if (DBG0) console.log(prefix + "[fetch] prefix HIT (cache): ", url);
+                    return response;
+                }
+
+                // DB lookup using stripped (unprefixed) URL
+                let x = await targetDB.get(lookupUrl);
+                if (!x) {
+                    const noSearch = lookupUrl.split('?')[0];
+                    if (noSearch !== lookupUrl) x = await targetDB.get(noSearch);
+                }
+                if (x) {
+                    const entry = new SBFile(x);
+                    if (DBG0) console.log(prefix + `[fetch] prefix HIT (DB): '${lookupUrl}'`);
+                    const contents = await fetchPayload(entry);
+                    const headers = { "Content-Type": entry.type! };
+                    await ourCache.put(url, new Response(contents, { headers })); // cache with original prefixed URL
+                    // Re-fetch from cache (more memory efficient for large payloads)
+                    response = await ourCache.match(url);
+                    if (response) return response;
+                    // Fallback: serve directly
+                    return new Response(contents, { headers });
+                }
+
+                if (DBG0) console.log(prefix + `[fetch] prefix MISS, returning 404:`, url);
+                return new Response('Not Found', { status: 404, statusText: `Not Found '${url}'` });
+            }
+
+            // ── Non-prefix mode (isolated subdomain): unchanged ───
+            let lookupUrl = url;
             const ourCache = await sb384cachePromise;
-            let response = await ourCache.match(url);
+            let response = await ourCache.match(lookupUrl);
             if (!response) {
-                // if full URL doesn't match we try with skipping '?' etc
-                response = await ourCache.match(url, { ignoreSearch: true });
-                if (DBG0 && response) console.log(prefix + "[fetch] HIT (with ignoring search): ", url);
+                response = await ourCache.match(lookupUrl, { ignoreSearch: true });
+                if (DBG0 && response) console.log(prefix + "[fetch] HIT (with ignoring search): ", lookupUrl);
             }
             if (response) {
                 if (DBG0) console.log(prefix + "[fetch] HIT: ", url, response);
@@ -439,13 +605,11 @@ self.addEventListener('fetch', function (event) {
                 }
                 if (SERVICE_WORKER_V4 || SERVICE_WORKER_V5) {
                     if (!urlDB) throw new Error(prefix + "urlDB not set. Fatal. (L362)");
-                    if (DBG0) console.log(prefix + "[fetch] checking DB for: ", url);
-                    let entryName = url;
+                    if (DBG0) console.log(prefix + "[fetch] checking DB for: ", lookupUrl);
+                    let entryName = lookupUrl;
                     let x = await urlDB.get(entryName);
-                    // todo: more homework on how servers/browsers handle matches with/without search yada yada
-                    //       for now a pretty naive approach (which might lead to duplicates in the cache for example)
                     if (!x) {
-                        const entryNoSearch = url.split('?')[0];
+                        const entryNoSearch = lookupUrl.split('?')[0];
                         if (entryNoSearch !== entryName) {
                             if (DBG0) console.log(prefix + "[fetch] ... not found, checking without search: ", entryNoSearch);
                             x = await urlDB.get(entryNoSearch);
@@ -455,12 +619,10 @@ self.addEventListener('fetch', function (event) {
                     const entry = x ? new SBFile(x) : null;
                     if (entry) {
                         if (DBG0) console.log(prefix + `[fetch]MISS (not in cache, local origin), but found in DB: '${entryName}'`, '\n', entry);
-                        const contents = await fetchPayload(entry); // read the contents (from SBFile entry, this handles large files too)
+                        const contents = await fetchPayload(entry);
                         const newResponse = new Response(contents, { headers: { "Content-Type": entry.type! } });
-                        await ourCache.put(url, newResponse); // add it to the cache, using original URL
-
-                        // Refetch the response from cache after adding it (presumably more memory efficient)
-                        response = await ourCache.match(entryName, { ignoreSearch: true }); // todo: sort out the search thing
+                        await ourCache.put(lookupUrl, newResponse);
+                        response = await ourCache.match(entryName, { ignoreSearch: true });
                         if (response) {
                             if (DBG0) console.log(prefix + "[fetch]REFETCHED from cache after add from DB: ", entryName);
                             return response;

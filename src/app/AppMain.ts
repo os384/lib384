@@ -70,10 +70,15 @@ function initialized<T extends { initialized: boolean }>(_target: T, propertyKey
  * Sample manifest file:
  *
    {
-    "lang": "en", "short_name": "PhotoDwap", "name": "Distributed Web App Photo
-    Sharing", "description": "Simple and easy to use photo sharing
-    application.", "version": "1.0.17", "author": "384, Inc.", "vault": true,
-    "keywords": [ "photo", "camera", "web3", "384"
+    "lang": "en",
+    "short_name": "PhotoDwap",
+    "name": "Distributed Web App Photo Sharing",
+    "description": "Simple and easy to use photo sharing application.",
+    "version": "1.0.17",
+    "author": "384, Inc.",
+    "vault": true,
+    "keywords": [
+        "photo", "camera", "web3", "384"
     ],
     "channels": [
         {
@@ -97,7 +102,7 @@ function initialized<T extends { initialized: boolean }>(_target: T, propertyKey
 
  * The 'vault' flag is optional, and if present will indicate that the app is a
  * vault app, which means the loader will track information (such as generated
- * keys) on the global ledger.
+ * keys) on the global ledger. It will also force the vault to be available.
  *
  * The 'channels' array is optional, but if present will list channels that the
  * application expects to loader to provide. os384 apps launch off the loader,

@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@std/assert": "./tests.unit/_std_assert_shim.ts"
+  }
+}

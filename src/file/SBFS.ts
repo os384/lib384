@@ -91,6 +91,9 @@ export class SBFS {
 
     fileSetMap: Map<string, FileSetMeta> = new Map();
 
+    /** Tracks shard hashes that have been reported missing/invalid on the storage server */
+    missingShards: Map<string, { reportedAt: number, reportedBy?: string }> = new Map();
+
     // ToDo: currently we can only handle one set being uploaded at a time (per SBFileSystem instance)
     newFileMap: Map<string, SBFile> = new Map()
     toUpload: Array<string> = []
@@ -460,6 +463,7 @@ export class SBFS {
                     break;
                 }
 
+
                 const fs: FileSetMeta = {
                     _id: msg._id,
                     senderUserId: msg.sender,
@@ -494,6 +498,21 @@ export class SBFS {
                 }
                 ChannelApi.knownShards.set(body.hash, body.handle)
                 ChannelApi.knownShards.set(body.hash.slice(0, 12), body.handle)
+                // Self-healing: if this shard was previously marked missing, clear the flag
+                if (this.missingShards.has(body.hash)) {
+                    if (DBG0) console.log(`[SBFS] Self-healing: shard ${body.hash} re-uploaded, clearing missing flag`)
+                    this.missingShards.delete(body.hash)
+                }
+                break;
+            case MessageType.MSG_SHARD_MISSING:
+                // A shard has been reported as missing/invalid on the storage server
+                if (body.hash) {
+                    if (DBG0) console.log(`[SBFS] Shard marked as missing: ${body.hash}`)
+                    this.missingShards.set(body.hash, {
+                        reportedAt: msg.serverTimestamp || Date.now(),
+                        reportedBy: body.senderUsername
+                    })
+                }
                 break;
             case 'PING':
                 console.info("[SBFileSystem] PING message received")
@@ -503,6 +522,128 @@ export class SBFS {
                 return null
         }
         return (body.messageType)
+    }
+
+
+    /**
+     * Reports a shard as missing/invalid on the storage server.
+     * Sends a MSG_SHARD_MISSING message on the ledger so all clients are aware.
+     */
+    async reportMissingShard(hash: string): Promise<void> {
+        if (!this.ledger) throw new Error("[SBFS] No ledger available to report missing shard")
+        this.missingShards.set(hash, { reportedAt: Date.now(), reportedBy: this.options.username })
+        await this.ledger.send({
+            messageType: MessageType.MSG_SHARD_MISSING,
+            hash: hash,
+            senderUsername: this.options.username,
+        })
+        console.log(`[SBFS] Reported shard as missing: ${hash}`)
+    }
+
+    /** Returns true if a shard hash is known to be missing on the storage server */
+    isShardMissing(hash: string): boolean {
+        return this.missingShards.has(hash)
+    }
+
+    /**
+     * Integrity check ("fsck") — validates all shard handles across all file sets
+     * against the storage server. Reports findings via a progress callback.
+     *
+     * Returns a summary of the check: total shards checked, valid, missing, and errors.
+     */
+    async integrityCheck(callbacks?: {
+        onProgress?: (checked: number, total: number) => void,
+        onShardResult?: (hash: string, fileName: string, status: 'ok' | 'missing' | 'error', detail?: string) => void,
+    }): Promise<{
+        totalShards: number,
+        validShards: number,
+        missingShards: string[],
+        errorShards: string[],
+    }> {
+        console.log("[SBFS:fsck] Starting integrity check...")
+
+        // Collect all unique shards keyed by handle.id, tracking both the handle
+        // and the content hash(es) from the SBFile (needed for reportMissingShard)
+        const shardMap = new Map<string, { handle: ObjectHandle, contentHashes: Set<string>, fileNames: string[] }>()
+
+        for (const [_setId, fileSetMeta] of this.fileSetMap.entries()) {
+            for (const [_key, sbFile] of fileSetMeta.fileSet.entries()) {
+                if (!sbFile.hash) continue
+                const fileName = sbFile.name || _key
+                const contentHash = sbFile.hash
+
+                if (sbFile.handleArray && sbFile.handleArray.length > 0) {
+                    // For large files, check each chunk handle
+                    for (let i = 0; i < sbFile.handleArray.length; i++) {
+                        const chunkHandle = sbFile.handleArray[i]
+                        if (!chunkHandle?.id) continue
+                        const chunkKey = chunkHandle.id
+                        if (!shardMap.has(chunkKey)) {
+                            shardMap.set(chunkKey, { handle: chunkHandle, contentHashes: new Set(), fileNames: [] })
+                        }
+                        const entry = shardMap.get(chunkKey)!
+                        entry.contentHashes.add(contentHash)
+                        entry.fileNames.push(`${fileName} (chunk ${i})`)
+                    }
+                } else if (sbFile.handle?.id) {
+                    const shardKey = sbFile.handle.id
+                    if (!shardMap.has(shardKey)) {
+                        shardMap.set(shardKey, { handle: sbFile.handle, contentHashes: new Set(), fileNames: [] })
+                    }
+                    const entry = shardMap.get(shardKey)!
+                    entry.contentHashes.add(contentHash)
+                    entry.fileNames.push(fileName)
+                }
+            }
+        }
+
+        const totalShards = shardMap.size
+        let checked = 0
+        const validShards: string[] = []
+        const missingShardsFound: string[] = []
+        const errorShards: string[] = []
+
+        console.log(`[SBFS:fsck] Checking ${totalShards} unique shards...`)
+
+        for (const [shardId, { handle, contentHashes, fileNames }] of shardMap.entries()) {
+            try {
+                // Attempt to fetch the shard from the storage server
+                const fetchedHandle = await this.SB.storage.fetchData(handle)
+
+                if (fetchedHandle && fetchedHandle.data) {
+                    validShards.push(shardId)
+                    callbacks?.onShardResult?.(shardId, fileNames.join(', '), 'ok')
+                } else {
+                    missingShardsFound.push(shardId)
+                    callbacks?.onShardResult?.(shardId, fileNames.join(', '), 'missing', 'No data returned')
+                    // Report all content hashes associated with this shard as missing
+                    for (const ch of contentHashes) await this.reportMissingShard(ch)
+                }
+            } catch (err: any) {
+                const errMsg = err?.message || String(err)
+                if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('failed to fetch')) {
+                    missingShardsFound.push(shardId)
+                    callbacks?.onShardResult?.(shardId, fileNames.join(', '), 'missing', errMsg)
+                    // Report all content hashes associated with this shard as missing
+                    for (const ch of contentHashes) await this.reportMissingShard(ch)
+                } else {
+                    errorShards.push(shardId)
+                    callbacks?.onShardResult?.(shardId, fileNames.join(', '), 'error', errMsg)
+                }
+            }
+
+            checked++
+            callbacks?.onProgress?.(checked, totalShards)
+        }
+
+        const summary = {
+            totalShards,
+            validShards: validShards.length,
+            missingShards: missingShardsFound,
+            errorShards,
+        }
+        console.log(`[SBFS:fsck] Integrity check complete:`, summary)
+        return summary
     }
 
 
@@ -518,7 +659,11 @@ export class SBFS {
         if (DBG0) console.log(SEP, "[spinUpStream] Stream started", SEP)
         for await (const message of stream) {
             if (DBG2) console.log("[spinUpStream] Message: ", message.body)
-            await this.receiveMessage(message)
+            try {
+                await this.receiveMessage(message)
+            } catch (e) {
+                console.error(`[spinUpStream] Error processing message (id=${message._id}, ts=${message.serverTimestamp}), skipping:`, e)
+            }
         }
         if (DBG0) console.log(SEP, "[spinUpStream] DONE")
     }
@@ -573,6 +718,12 @@ export class SBFS {
                 const handle = ChannelApi.knownShards.get(value.hash)
                 if (!handle) throw new Error("Internal Error (L199)")
                 this.newFileMap.get(key)!.handleArray = [handle!]
+            }
+            // Self-healing: if this file's content hash was marked as missing,
+            // a successful upload (or dedup reuse) means the shard is now valid
+            if (value.hash && this.missingShards.has(value.hash)) {
+                if (DBG0) console.log(`[SBFS] Self-healing: shard ${value.hash} now available`)
+                this.missingShards.delete(value.hash)
             }
         });
 

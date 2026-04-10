@@ -9,6 +9,22 @@ Versioning: [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **MSG_SHARD_MISSING message type** (`channel/MessageType.ts`): New channel
+  message for recording shards that are missing or invalid on the storage server.
+  Replayed on stream hydration so all clients stay aware of bad shards.
+- **Missing shard tracking** (`file/SBFS.ts`): New `missingShards` map on SBFS
+  tracks content hashes reported as missing. Includes `isShardMissing(hash)`,
+  `reportMissingShard(hash)` methods for querying and recording.
+- **Integrity check / fsck** (`file/SBFS.ts`): New `integrityCheck(callbacks)`
+  method validates all shard handles across all file sets against the storage
+  server. Reports progress, identifies missing/error shards, and automatically
+  sends MSG_SHARD_MISSING for any failures.
+- **Self-healing shard repair** (`file/SBFS.ts`, `file/SBFileSystem.ts`):
+  Shards marked as missing bypass the dedup skip in `uploadNewSet` and
+  `uploadBuffer`, forcing a real re-upload. On successful upload, the missing
+  flag is cleared in `doneUploadingSet`. MSG_NEW_SHARD handler also clears
+  missing flags when a shard reappears on the stream.
+
 - **Local mirror probe** (`storage/core.ts`): New `initLocalMirrorProbe()` and
   `isLocalMirrorAvailable()` exports. Shard fetches automatically probe
   `localhost:3841/api/version` (800ms timeout) and prefer the local mirror when

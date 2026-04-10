@@ -20,9 +20,9 @@ $(CLI_TARGET): $(CLI_SRCS)
 
 # note: these will deploy to local or staging depending on env.js
 deployLib384:
-	384 publish -f 384.esm.js -k $$sb384_lib384_esm && \
-	384 publish -f 384.iife.js -k $$sb384_lib384_iife && \
-	384 publish -f 384.esm.d.ts -k $$sb384_lib384_types
+	384 publish -f dist/384.esm.js -k $$sb384_lib384_esm && \
+	384 publish -f dist/384.iife.js -k $$sb384_lib384_iife && \
+	384 publish -f dist/384.esm.d.ts -k $$sb384_lib384_types
 
 # (loader not developed from dedicated "loader" repo)
 # # note: these will deploy to local or staging depending on env.js

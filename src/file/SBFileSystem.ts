@@ -125,12 +125,8 @@ export class SBFileSystem extends SBFS {
             // we make sure all shards are uploaded first before sending 'set' info;
             // iterate over all Map() entries and upload them
 
-            // ToDo: move to UI interface code
-            const loadingBar = document.querySelector('.loading-bar') as HTMLElement;
-            if (!loadingBar)
-                console.warn("loading bar not found")
-            else
-                loadingBar.style.display = 'block';
+            // Signal upload start via callback (if provided)
+            this.callbacks.setProgressBarWidth?.(0);
 
             const uploadPromises = []
             for (const f of fileList) {
@@ -172,9 +168,14 @@ export class SBFileSystem extends SBFS {
                     f.hash = arrayBufferToBase62(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(joinedHashes))).slice(0, 12);
                     // debugger;
                 } else {
-                    if (ChannelApi.knownShards.has(f.hash)) {
+                    if (ChannelApi.knownShards.has(f.hash) && !this.missingShards.has(f.hash)) {
                         if (DBG0) console.log(`---- skipping ${f.hash} shard (already known / published)`);
                         continue;
+                    }
+                    if (this.missingShards.has(f.hash)) {
+                        if (DBG0) console.log(`[uploadNewSet] Shard ${f.hash} marked missing, forcing re-upload`)
+                        ChannelApi.knownShards.delete(f.hash)
+                        ChannelApi.knownShards.delete(f.hash.slice(0, 12))
                     }
                     await StorageApi.paceUploads()
                     if (error) return error;
@@ -256,7 +257,7 @@ export class SBFileSystem extends SBFS {
         else if (hash !== verifyHash)
             throw new Error(`[uploadBuffer] Hash mismatch: ${hash} !== ${verifyHash}`)
 
-        if (ChannelApi.knownShards.has(hash)) {
+        if (ChannelApi.knownShards.has(hash) && !this.missingShards.has(hash)) {
             console.info(`[uploadBuffer] Shard already known: ${hash}`)
             return ChannelApi.knownShards.get(hash)
         }
@@ -264,7 +265,7 @@ export class SBFileSystem extends SBFS {
         this.toUpload.push(hash)
         const handle = await this.SB.storage.storeData(buffer, this.options.budgetHandle)
         await handle.verification
-        console.log("WE GOT BACK HANDLE:", handle)
+        if (DBG0) console.log("WE GOT BACK HANDLE:", handle)
 
         // now we add it to the set of known hash->handle mappings
         ChannelApi.knownShards.set(hash, handle)
@@ -291,7 +292,17 @@ export class SBFileSystem extends SBFS {
         await StorageApi.paceUploads()
         console.log("[uploadFile] file:", file)
         if (!file.hash) throw new SBError("file.hash is missing")
-        const buffer = BrowserFileHelper.knownBuffers.get(file.hash)
+        let buffer = BrowserFileHelper.knownBuffers.get(file.hash)
+        if (!buffer && file.browserFile) {
+            // Buffer may have been GC'd between attempts; recover from the original browser File
+            try {
+                buffer = await file.browserFile.arrayBuffer()
+                BrowserFileHelper.knownBuffers.set(file.hash, buffer)
+                if (DBG0) console.log(`[uploadFile] Recovered buffer for ${file.hash} from browserFile`)
+            } catch (e) {
+                console.warn(`[uploadFile] Failed to recover buffer for ${file.hash}:`, e)
+            }
+        }
         if (!buffer)
             throw new SBError(`**** failed to find buffer for ${file.hash}`)
 

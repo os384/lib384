@@ -71,7 +71,9 @@ function getType(value: any) {
   if (value !== null && typeof value === 'object' && value.constructor === Object) return 'o';
   if (value instanceof Set) return 't';
   if (typeof value === 'string') return 's';
-  if (value instanceof WeakRef) return 'w'; // Check for any WeakRef
+  if (value instanceof WeakRef)
+    throw new SBError("[assemblePayload] WeakRef cannot be serialized — caller must resolve or strip it before serialization");
+
   // if (ArrayBuffer.isView(value) && !(value instanceof DataView)) {
   //   // it's a typed array; currently we're only supporting Uint8Array
   //   if (value.constructor.name === 'Uint8Array') return '8';
@@ -169,7 +171,6 @@ function _assemblePayload(data: any): ArrayBuffer | null {
             if (!setPayload) throw new SBError(`Failed to assemble payload for ${key}`);
             BufferList.push(setPayload);
             break;
-          case 'w': // WeakRefs are treated as 'null'
           case '0': // Null
             BufferList.push(new ArrayBuffer(0));
             break;
@@ -262,6 +263,9 @@ function deserializeValue(buffer: ArrayBuffer, type: string): any {
     case '8': // Uint8Array
       return new Uint8Array(buffer);
     case '0': // Null
+      return null;
+    case 'w': // WeakRef was serialized — this means data was lost (GC race during serialization)
+      console.warn("[extractPayload] encountered type 'w' (WeakRef) — data at this field was lost during serialization");
       return null;
     case 'u': // Undefined
       return undefined;

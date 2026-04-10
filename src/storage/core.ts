@@ -38,7 +38,7 @@ import { SALT_TYPE, NONCE_TYPE } from '../types'
 //     hash?: string, // hash of the object (hashed in payload format)
 // }
 
-const DBG0 = false
+const DBG0 = true
 declare var DBG2: boolean;
 const SEP = '--------------------------------'
 
@@ -54,8 +54,23 @@ const LOCAL_MIRROR = 'http://localhost:3841'
 let _localMirrorAvailable: boolean | null = null
 let _mirrorProbePromise: Promise<boolean> | null = null
 
+/** True when the page is served from localhost (any port/subdomain). */
+function _isLocalhost(): boolean {
+    try {
+        const h = globalThis?.location?.hostname
+        return h === 'localhost' || h === '127.0.0.1' || h.endsWith('.localhost')
+    } catch {
+        return false   // non-browser (e.g. Deno/Node) — no mirror
+    }
+}
+
 /** Returns true if the local mirror responds within 800ms. */
 async function _probeLocalMirror(): Promise<boolean> {
+    // Only probe when running on localhost. From a production origin
+    // (e.g. https://384.dev) the fetch would fail anyway: browsers
+    // block HTTPS→HTTP as mixed content, and the mirror only listens
+    // on localhost so it's unreachable from remote hosts regardless.
+    if (!_isLocalhost()) return false
     try {
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), 800)
@@ -217,7 +232,8 @@ export async function fetchDataCore(useServer: string, url: string, h: ObjectHan
         h.data = new WeakRef(shard.data) // once we've gotten the payload, we keep ref but we're chill about it
         return ({ hash: hash, handle: h })
     } catch (error) {
-        if (DBG0) console.log(`fetchData(): trying to get object on '${useServer}' failed: '${error}'`)
+        // always log fetch failures to aid diagnosis (they're swallowed by the multi-server loop)
+        console.warn(`[fetchDataCore] fetch from '${useServer}' failed:`, error)
         return (undefined)
     }
 }
@@ -259,6 +275,11 @@ export async function fetchDataFromHandle(handle: ObjectHandle): Promise<ObjectH
         servers = [remoteServer, LOCAL_MIRROR]     // not probed: try both (original behavior)
     }
 
+    const effectiveServers = servers.filter(s => s !== null)
+    if (effectiveServers.length === 0) {
+        console.error(`[fetchData] NO servers to try! storageServer=${h.storageServer}, localMirror=${_localMirrorAvailable}`)
+    }
+
     for (const server of servers) {
         if (!server) continue
         if (DBG0) console.log('\n', SEP, "fetchData(), trying server: ", server, '\n', SEP)
@@ -272,7 +293,8 @@ export async function fetchDataFromHandle(handle: ObjectHandle): Promise<ObjectH
             return (handle)
         }
     }
-    throw new Error(`[fetchData] failed to fetch from any server`)
+    console.error(`[fetchData] FAILED all servers for object id=${h.id}, storageServer=${h.storageServer}, verification=${typeof verification}:${verification ? String(verification).slice(0,20) : 'MISSING'}, key=${h.key ? 'present' : 'MISSING'}, servers tried:`, effectiveServers)
+    throw new Error(`[fetchData] failed to fetch from any server (object id: ${h.id})`)
 }
 
 /**

@@ -22,6 +22,7 @@ export enum MessageType {
     // shard/file sharing
     MSG_FILE_SET = "FILE_SET_FEm4a3EW0cn1", // upon sharing "set" of files (only meta data)
     MSG_NEW_SHARD = "NEW_SHARD_eUp2cR96dH3E", // sent every time a shard/file is seen that's new
+    MSG_SHARD_MISSING = "SHARD_MISSING_7kR3mPx9qW2N", // records that a shard is missing/invalid on the storage server
 
     // user private data
     MSG_USER_PRIVATE_DATA = "USER_PRIVATE_DATA_R0FR1LWRRddE", // any private (meta whatever) data a user wants to record
@@ -40,6 +41,7 @@ export const MessageTypeList = [
     MessageType.MSG_SIMPLE_CHAT,
     MessageType.MSG_FILE_SET,
     MessageType.MSG_NEW_SHARD,
+    MessageType.MSG_SHARD_MISSING,
     MessageType.MSG_NEW_USER_KEY,
     MessageType.MSG_USER_PRIVATE_DATA,
     MessageType.MSG_CLAIM_PUBLIC_KEY,
