@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-const version = `20260408.5`;
+const version = `20260409.0`;
 const SWDB_VERSION = 44; // always increase this (sigh); used for all DBs
 
 /*!
