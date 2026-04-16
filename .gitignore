@@ -24,6 +24,8 @@ deno.lock
 .vscode/settings.json
 .local.data.json
 
-yarn.lock
 bin/
 *~
+
+# Locking on 2026.04.16 as we work towards RC3
+# pnpm-lock.yaml

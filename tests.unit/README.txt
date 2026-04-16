@@ -3,7 +3,7 @@ Unit tests:
 Setup: 
 
 These can be run individually (at command line), or all of them from the top
-level with ''yarn test''.
+level with ''pnpm test''.
 
 There's also a local (static) index.static.html, as well as ''index.html'' (run
 with ''./serve.py'') to facilitate debugging at browser IDE command line.

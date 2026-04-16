@@ -48,7 +48,7 @@ import { Channel } from "@os384/lib384"
 
 Make sure you have:
 
-* yarn
+* pnpm (10.x)
 * tsc (5.4.2)
 * Deno (2.0.x)
 * Python (3.9.x)
@@ -57,9 +57,9 @@ Make sure you have:
 
 ```sh
   # install dependencies
-  yarn install
+  pnpm install
   # build the library
-  yarn build
+  pnpm run build
 ```
 
 ### Test configuration
@@ -196,14 +196,14 @@ where you want to be keeping results.
 
 To run unit tests, you need deno_std set up, see below.
 
-Once you've got handles set up, you can make sure things are running with ''yarn
+Once you've got handles set up, you can make sure things are running with ''pnpm
 test''. Those tests (in ''./tests.unit'') are also a good place to look for
 examples of how to use the library. Note that some of them are quite technical
 and low-level to test pieces of the library that build up to higher level
 primits. Roughly speaking, the shorter the unit test the more likely to be
 relevant to you.
 
-The quicker tests are under ''yarn test:fast''.
+The quicker tests are under ''pnpm test:fast''.
 
 The ''demos'' directory has a number of examples of how to use the library in
 more complex ways.
@@ -215,13 +215,13 @@ If you are contributor/developer, a few things:
 
 Must-haves:
 
-- you will need yarn, esbuild, and deno
+- you will need pnpm, esbuild, and deno
   all of them you want native (not node, eg use brew on macs)
 
-- ''yarn install'' still needed, sadly, currently no other practical way to roll
+- ''pnpm install'' still needed, sadly, currently no other practical way to roll
   up the type definitions
 
-- then ''yarn start'' should do the rest, you can also do ''yarn all'' which
+- then ''pnpm start'' should do the rest, you can also do ''pnpm all'' which
   forces a from-scratch build of everything
 
 - as outlined above, to run some things you'll need to copy ''env.js.example''
@@ -232,13 +232,13 @@ own you'll need to tweak ''env.js''.
 
 You may need to use a few other variations:
 
-- ''yarn build'' builds all the parts, most complete target
-- ''yarn build:debug'' is the same but also creates ''dist/384.esm.debug.js''
+- ''pnpm build'' builds all the parts, most complete target
+- ''pnpm build:debug'' is the same but also creates ''dist/384.esm.debug.js''
   with inlined source maps (more resilient to source map issues)
-- ''yarn types'' to roll up type definitions
-- ''yarn browser'' for iife, ''start'' does not default to that
+- ''pnpm types'' to roll up type definitions
+- ''pnpm browser'' for iife, ''start'' does not default to that
 - sometimes a stand-alone ''tsc'' is needed
-- ''yarn clean'' in case things seem broken
+- ''pnpm clean'' in case things seem broken
 
 Additional things that might be needed:
 

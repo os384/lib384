@@ -4,7 +4,7 @@
   "types": "./dist/384.esm.d.ts",
   "description": "384+SB Library",
   "author": "384, Inc.",
-  "license": "GPL-3.0-only",
+  "license": "AGPL-3.0",
   "scripts": {
     "start": "esbuild --watch=forever src/index.ts --bundle --format=esm --minify --define:DBG=false --define:DBG2=false --outfile=dist/384.esm.js & esbuild --watch=forever src/index.ts --bundle --format=iife --minify --define:DBG=false --define:DBG2=false --global-name=__ --outfile=dist/384.iife.js",
     "start:debug": "tsc -w & esbuild --watch=forever src/index.ts --bundle --format=esm --sourcemap=linked --define:DBG=true --define:DBG2=false --outfile=dist/384.esm.js & esbuild --watch=forever src/index.ts --bundle --format=iife --sourcemap=linked --define:DBG=true --define:DBG2=false --global-name=__ --outfile=dist/384.iife.js",
@@ -22,7 +22,7 @@
     "test:slow": "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[slow]' tests.unit/",
     "test:dbg0": "deno test --trace-leaks --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --filter='[DBG0]' tests.unit/",
     "test:coverage": "deno test --coverage=./tests.unit/coverage --no-check --allow-read --allow-write --allow-net --allow-env --allow-run --unstable tests.unit/ && deno coverage --exclude='deno' --exclude='env.js' --exclude='config.js' --exclude='384.esm.js' --unstable --lcov ./tests.unit/coverage/ > ./tests.unit/coverage/lcov.info && genhtml ./tests.unit/coverage/lcov.info --output-directory ./tests.unit/coverage/html && open ./tests.unit/coverage/html/index.html",
-    "all": "npm run clean && npm run build && npm run sw && npm run build:api && (cd demos && npm run all)",
+    "all": "pnpm run clean && pnpm run build && pnpm run sw && pnpm run build:api && (cd demos && pnpm run all)",
     "sw": "tsc -p src/service-worker/tsconfig.json && esbuild src/service-worker/index.ts --bundle --format=iife --outfile=dist/service-worker.js --define:DBG=false --define:DBG2=false --minify --legal-comments=inline",
     "sw:debug": "tsc -p src/service-worker/tsconfig.json && esbuild src/service-worker/index.ts --bundle --format=iife --outfile=dist/service-worker.js --define:DBG=true --define:DBG2=false --legal-comments=inline"
 
@@ -37,8 +37,13 @@
   "dependencies": {
     "@cloudflare/workers-types": "^4.20240405.0"
   },
-  "resolutions": {
-    "typescript": "5.4.2"
+  "pnpm": {
+    "overrides": {
+      "typescript": "5.4.2"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "packageManager": "pnpm@10.4.1"
 }

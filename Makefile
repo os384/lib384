@@ -42,15 +42,15 @@ assert-staging:
 	@grep "serverType" env.js | grep -q "'dev'" || (echo "Error: serverType 'env.js' must be set to 'dev'" && false)
 
 buildLib384:
-	yarn build
+	pnpm run build
 
 # # the loader is different for local and staging
 # # (it pulls it's 'index.js' from either local or staging servers)
 # buildLoaderLocal: assert-local
-# 	cd demos && yarn 13:local
+# 	cd demos && pnpm run 13:local
 
 # buildLoaderStaging: assert-staging
-# 	cd demos && yarn 13:staging
+# 	cd demos && pnpm run 13:staging
 
 # buildLocal: assert-local buildLib384 buildLoaderLocal buildSWdbg
 buildLocal: assert-local buildLib384 buildSWdbg
@@ -59,14 +59,14 @@ buildLocal: assert-local buildLib384 buildSWdbg
 buildStaging: assert-staging buildLib384 buildSW
 
 sw buildSW:
-	yarn sw
+	pnpm run sw
 
 buildSWdbg:
-	yarn sw:debug
+	pnpm run sw:debug
 
 # only 'fast' test actually fully terminates, most non-fast are intended for interactive use
 test: cli
-	yarn test:fast
+	pnpm run test:fast
 
 # loader no longer deployed to staging from lib384 but from separate repo
 all-staging: assert-staging cli buildStaging buildSW test deployLib
